@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE diagram [
+<!ATTLIST diagram version CDATA #REQUIRED name CDATA #IMPLIED time CDATA #REQUIRED>
+<!ELEMENT diagram (entities, notes, relations)>
+<!ELEMENT entities (data-source*)>
+<!ELEMENT data-source (entity*)>
+<!ATTLIST data-source id CDATA #REQUIRED>
+<!ELEMENT entity (path*)>
+<!ATTLIST entity id ID #REQUIRED name CDATA #REQUIRED fq-name CDATA #REQUIRED>
+<!ELEMENT path EMPTY>
+<!ATTLIST path name CDATA #REQUIRED>
+<!ELEMENT notes (note*)>
+<!ELEMENT note (#PCDATA)>
+<!ATTLIST note id ID #REQUIRED x CDATA #IMPLIED y CDATA #IMPLIED w CDATA #IMPLIED h CDATA #IMPLIED>
+<!ELEMENT relations (relation*)>
+<!ELEMENT relation (column*, bend*)>
+<!ATTLIST relation name CDATA #REQUIRED fq-name CDATA #REQUIRED type CDATA #IMPLIED pk-ref IDREF #REQUIRED fk-ref IDREF #REQUIRED>
+<!ELEMENT column EMPTY>
+<!ATTLIST column name CDATA #REQUIRED ref-name CDATA #REQUIRED>
+<!ELEMENT bend EMPTY>
+<!ATTLIST bend type CDATA #REQUIRED x CDATA #REQUIRED y CDATA #REQUIRED>
+]>
+<diagram version="1" name="FolioLens MVP Full ERD" time="2026-07-23T00:00:00+09:00">
+  <entities>
+    <data-source id="foliolens-postgresql">
+      <entity id="e1" name="owners" fq-name="foliolens.public.owners" x="40" y="40" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e2" name="demo_sessions" fq-name="foliolens.public.demo_sessions" x="40" y="300" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e3" name="portfolios" fq-name="foliolens.public.portfolios" x="40" y="600" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e4" name="companies" fq-name="foliolens.public.companies" x="420" y="40" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e5" name="company_aliases" fq-name="foliolens.public.company_aliases" x="420" y="360" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e6" name="holdings" fq-name="foliolens.public.holdings" x="420" y="680" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e7" name="investment_theses" fq-name="foliolens.public.investment_theses" x="40" y="980" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e8" name="investment_thesis_versions" fq-name="foliolens.public.investment_thesis_versions" x="420" y="1080" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+
+      <entity id="e9" name="disclosure_types" fq-name="foliolens.public.disclosure_types" x="860" y="40" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e10" name="disclosures" fq-name="foliolens.public.disclosures" x="860" y="340" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e11" name="disclosure_documents" fq-name="foliolens.public.disclosure_documents" x="860" y="700" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e12" name="disclosure_relations" fq-name="foliolens.public.disclosure_relations" x="1240" y="40" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e13" name="citations" fq-name="foliolens.public.citations" x="1240" y="400" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e14" name="disclosure_facts" fq-name="foliolens.public.disclosure_facts" x="1240" y="820" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e15" name="disclosure_fact_citations" fq-name="foliolens.public.disclosure_fact_citations" x="1640" y="820" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e16" name="disclosure_comparisons" fq-name="foliolens.public.disclosure_comparisons" x="860" y="1120" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e17" name="disclosure_changes" fq-name="foliolens.public.disclosure_changes" x="1240" y="1260" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+
+      <entity id="e18" name="importance_rules" fq-name="foliolens.public.importance_rules" x="1840" y="40" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e19" name="disclosure_analyses" fq-name="foliolens.public.disclosure_analyses" x="1840" y="380" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e20" name="analysis_score_components" fq-name="foliolens.public.analysis_score_components" x="2240" y="40" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e21" name="analysis_citations" fq-name="foliolens.public.analysis_citations" x="2240" y="360" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e22" name="thesis_impacts" fq-name="foliolens.public.thesis_impacts" x="1840" y="820" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e23" name="thesis_impact_facts" fq-name="foliolens.public.thesis_impact_facts" x="2240" y="700" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e24" name="thesis_impact_citations" fq-name="foliolens.public.thesis_impact_citations" x="2240" y="980" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e25" name="analysis_scenarios" fq-name="foliolens.public.analysis_scenarios" x="1840" y="1220" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e26" name="scenario_citations" fq-name="foliolens.public.scenario_citations" x="2240" y="1280" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e27" name="next_metrics" fq-name="foliolens.public.next_metrics" x="1840" y="1580" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+
+      <entity id="e28" name="conversations" fq-name="foliolens.public.conversations" x="2700" y="40" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e29" name="agent_requests" fq-name="foliolens.public.agent_requests" x="2700" y="380" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e30" name="answer_claims" fq-name="foliolens.public.answer_claims" x="2700" y="860" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e31" name="answer_claim_citations" fq-name="foliolens.public.answer_claim_citations" x="2700" y="1180" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+      <entity id="e32" name="disclosure_sync_jobs" fq-name="foliolens.public.disclosure_sync_jobs" x="2700" y="1500" showAttrs="ALL">
+        <path name="public"/>
+        <path name="foliolens"/>
+      </entity>
+    </data-source>
+  </entities>
+  <notes>
+    <note id="n1" x="40" y="1540" w="720" h="180">FolioLens MVP: facts and deterministic calculations are separated from Agent interpretations. Run foliolens_schema.sql first. This layout expects database=foliolens and schema=public.</note>
+  </notes>
+  <relations>
+    <relation name="fk_demo_sessions_owner" fq-name="public.fk_demo_sessions_owner" type="fk" pk-ref="e1" fk-ref="e2">
+      <column name="owner_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_portfolios_owner" fq-name="public.fk_portfolios_owner" type="fk" pk-ref="e1" fk-ref="e3">
+      <column name="owner_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_company_aliases_company" fq-name="public.fk_company_aliases_company" type="fk" pk-ref="e4" fk-ref="e5">
+      <column name="company_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_holdings_portfolio" fq-name="public.fk_holdings_portfolio" type="fk" pk-ref="e3" fk-ref="e6">
+      <column name="portfolio_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_holdings_company" fq-name="public.fk_holdings_company" type="fk" pk-ref="e4" fk-ref="e6">
+      <column name="company_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_investment_theses_holding" fq-name="public.fk_investment_theses_holding" type="fk" pk-ref="e6" fk-ref="e7">
+      <column name="holding_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_investment_theses_current_version" fq-name="public.fk_investment_theses_current_version" type="fk" pk-ref="e8" fk-ref="e7">
+      <column name="current_version_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_thesis_versions_thesis" fq-name="public.fk_thesis_versions_thesis" type="fk" pk-ref="e7" fk-ref="e8">
+      <column name="thesis_id" ref-name="id"/>
+    </relation>
+
+    <relation name="fk_disclosures_company" fq-name="public.fk_disclosures_company" type="fk" pk-ref="e4" fk-ref="e10">
+      <column name="company_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosures_type" fq-name="public.fk_disclosures_type" type="fk" pk-ref="e9" fk-ref="e10">
+      <column name="disclosure_type_code" ref-name="code"/>
+    </relation>
+    <relation name="fk_disclosure_documents_disclosure" fq-name="public.fk_disclosure_documents_disclosure" type="fk" pk-ref="e10" fk-ref="e11">
+      <column name="disclosure_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_relations_source" fq-name="public.fk_disclosure_relations_source" type="fk" pk-ref="e10" fk-ref="e12">
+      <column name="source_disclosure_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_relations_target" fq-name="public.fk_disclosure_relations_target" type="fk" pk-ref="e10" fk-ref="e12">
+      <column name="target_disclosure_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_citations_disclosure" fq-name="public.fk_citations_disclosure" type="fk" pk-ref="e10" fk-ref="e13">
+      <column name="disclosure_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_citations_document" fq-name="public.fk_citations_document" type="fk" pk-ref="e11" fk-ref="e13">
+      <column name="disclosure_document_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_facts_disclosure" fq-name="public.fk_disclosure_facts_disclosure" type="fk" pk-ref="e10" fk-ref="e14">
+      <column name="disclosure_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_facts_document" fq-name="public.fk_disclosure_facts_document" type="fk" pk-ref="e11" fk-ref="e14">
+      <column name="disclosure_document_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_fact_citations_fact" fq-name="public.fk_disclosure_fact_citations_fact" type="fk" pk-ref="e14" fk-ref="e15">
+      <column name="fact_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_fact_citations_citation" fq-name="public.fk_disclosure_fact_citations_citation" type="fk" pk-ref="e13" fk-ref="e15">
+      <column name="citation_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_comparisons_original" fq-name="public.fk_disclosure_comparisons_original" type="fk" pk-ref="e10" fk-ref="e16">
+      <column name="original_disclosure_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_comparisons_corrected" fq-name="public.fk_disclosure_comparisons_corrected" type="fk" pk-ref="e10" fk-ref="e16">
+      <column name="corrected_disclosure_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_changes_comparison" fq-name="public.fk_disclosure_changes_comparison" type="fk" pk-ref="e16" fk-ref="e17">
+      <column name="comparison_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_changes_before_fact" fq-name="public.fk_disclosure_changes_before_fact" type="fk" pk-ref="e14" fk-ref="e17">
+      <column name="before_fact_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_changes_after_fact" fq-name="public.fk_disclosure_changes_after_fact" type="fk" pk-ref="e14" fk-ref="e17">
+      <column name="after_fact_id" ref-name="id"/>
+    </relation>
+
+    <relation name="fk_disclosure_analyses_portfolio" fq-name="public.fk_disclosure_analyses_portfolio" type="fk" pk-ref="e3" fk-ref="e19">
+      <column name="portfolio_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_analyses_disclosure" fq-name="public.fk_disclosure_analyses_disclosure" type="fk" pk-ref="e10" fk-ref="e19">
+      <column name="disclosure_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_analyses_comparison" fq-name="public.fk_disclosure_analyses_comparison" type="fk" pk-ref="e16" fk-ref="e19">
+      <column name="comparison_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_analyses_rule" fq-name="public.fk_disclosure_analyses_rule" type="fk" pk-ref="e18" fk-ref="e19">
+      <column name="importance_rule_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_analysis_score_components_analysis" fq-name="public.fk_analysis_score_components_analysis" type="fk" pk-ref="e19" fk-ref="e20">
+      <column name="analysis_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_analysis_citations_analysis" fq-name="public.fk_analysis_citations_analysis" type="fk" pk-ref="e19" fk-ref="e21">
+      <column name="analysis_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_analysis_citations_citation" fq-name="public.fk_analysis_citations_citation" type="fk" pk-ref="e13" fk-ref="e21">
+      <column name="citation_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_thesis_impacts_analysis" fq-name="public.fk_thesis_impacts_analysis" type="fk" pk-ref="e19" fk-ref="e22">
+      <column name="analysis_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_thesis_impacts_version" fq-name="public.fk_thesis_impacts_version" type="fk" pk-ref="e8" fk-ref="e22">
+      <column name="thesis_version_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_thesis_impact_facts_impact" fq-name="public.fk_thesis_impact_facts_impact" type="fk" pk-ref="e22" fk-ref="e23">
+      <column name="thesis_impact_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_thesis_impact_facts_fact" fq-name="public.fk_thesis_impact_facts_fact" type="fk" pk-ref="e14" fk-ref="e23">
+      <column name="fact_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_thesis_impact_citations_impact" fq-name="public.fk_thesis_impact_citations_impact" type="fk" pk-ref="e22" fk-ref="e24">
+      <column name="thesis_impact_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_thesis_impact_citations_citation" fq-name="public.fk_thesis_impact_citations_citation" type="fk" pk-ref="e13" fk-ref="e24">
+      <column name="citation_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_analysis_scenarios_analysis" fq-name="public.fk_analysis_scenarios_analysis" type="fk" pk-ref="e19" fk-ref="e25">
+      <column name="analysis_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_scenario_citations_scenario" fq-name="public.fk_scenario_citations_scenario" type="fk" pk-ref="e25" fk-ref="e26">
+      <column name="scenario_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_scenario_citations_citation" fq-name="public.fk_scenario_citations_citation" type="fk" pk-ref="e13" fk-ref="e26">
+      <column name="citation_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_next_metrics_analysis" fq-name="public.fk_next_metrics_analysis" type="fk" pk-ref="e19" fk-ref="e27">
+      <column name="analysis_id" ref-name="id"/>
+    </relation>
+
+    <relation name="fk_conversations_owner" fq-name="public.fk_conversations_owner" type="fk" pk-ref="e1" fk-ref="e28">
+      <column name="owner_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_conversations_portfolio" fq-name="public.fk_conversations_portfolio" type="fk" pk-ref="e3" fk-ref="e28">
+      <column name="portfolio_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_agent_requests_owner" fq-name="public.fk_agent_requests_owner" type="fk" pk-ref="e1" fk-ref="e29">
+      <column name="owner_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_agent_requests_portfolio" fq-name="public.fk_agent_requests_portfolio" type="fk" pk-ref="e3" fk-ref="e29">
+      <column name="portfolio_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_agent_requests_conversation" fq-name="public.fk_agent_requests_conversation" type="fk" pk-ref="e28" fk-ref="e29">
+      <column name="conversation_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_agent_requests_holding" fq-name="public.fk_agent_requests_holding" type="fk" pk-ref="e6" fk-ref="e29">
+      <column name="selected_holding_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_agent_requests_disclosure" fq-name="public.fk_agent_requests_disclosure" type="fk" pk-ref="e10" fk-ref="e29">
+      <column name="selected_disclosure_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_answer_claims_request" fq-name="public.fk_answer_claims_request" type="fk" pk-ref="e29" fk-ref="e30">
+      <column name="agent_request_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_answer_claim_citations_claim" fq-name="public.fk_answer_claim_citations_claim" type="fk" pk-ref="e30" fk-ref="e31">
+      <column name="answer_claim_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_answer_claim_citations_citation" fq-name="public.fk_answer_claim_citations_citation" type="fk" pk-ref="e13" fk-ref="e31">
+      <column name="citation_id" ref-name="id"/>
+    </relation>
+    <relation name="fk_disclosure_sync_jobs_portfolio" fq-name="public.fk_disclosure_sync_jobs_portfolio" type="fk" pk-ref="e3" fk-ref="e32">
+      <column name="portfolio_id" ref-name="id"/>
+    </relation>
+  </relations>
+</diagram>
