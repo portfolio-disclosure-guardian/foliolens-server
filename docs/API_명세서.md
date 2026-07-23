@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 문서 버전 | v0.2 |
+| 문서 버전 | v0.2.1 |
 | 문서 상태 | 구현 전 검토용 초안 |
 | 작성일 | 2026-07-23 |
 | 대상 | FolioLens MVP 웹 클라이언트·Spring 백엔드 |
@@ -42,6 +42,11 @@
 - `CustomException`, `MethodArgumentNotValidException`, 미처리 `Exception`의 처리 결과를 구분했다.
 - 현재 구현된 `COMMON_*` 오류 코드와 앞으로 추가할 도메인 오류 코드를 분리했다.
 - 페이지 정보는 공통 응답의 최상위가 아니라 `data` 안에서 반환하도록 정리했다.
+
+### 1.2 v0.2.1 변경 사항
+
+- API 요약을 화면·공개 범위 중심 분류에서 URL 리소스별 분류로 변경했다.
+- 같은 URL prefix에서 지원하는 HTTP Method와 하위 리소스를 한곳에서 확인할 수 있도록 정리했다.
 
 ## 2. 설계 원칙
 
@@ -411,12 +416,24 @@ FAILED
 
 ## 6. API 요약
 
-### 6.1 사용자 API
+### 6.1 `/api/v1/demo-sessions`
 
 | Method | Path | 설명 | 화면 |
 |---|---|---|---|
 | POST | `/api/v1/demo-sessions` | 데모 세션 생성 | 공통 |
+
+### 6.2 `/api/v1/companies`
+
+| Method | Path | 설명 | 화면 |
+|---|---|---|---|
 | GET | `/api/v1/companies` | 종목명·종목코드 검색 | ONB-003, PORT-002 |
+
+### 6.3 `/api/v1/portfolios`
+
+포트폴리오 자체와 포트폴리오에 귀속되는 보유 종목, 대시보드, 공시 분석 API를 포함한다.
+
+| Method | Path | 설명 | 화면 |
+|---|---|---|---|
 | POST | `/api/v1/portfolios` | 포트폴리오 생성 | ONB-002 |
 | GET | `/api/v1/portfolios/{portfolioId}` | 포트폴리오와 보유 종목 조회 | PORT-001 |
 | PATCH | `/api/v1/portfolios/{portfolioId}` | 포트폴리오 설정 수정 | SET-001 |
@@ -424,24 +441,58 @@ FAILED
 | GET | `/api/v1/portfolios/{portfolioId}/holdings/{holdingId}` | 보유 종목 상세 | PORT-003 |
 | PATCH | `/api/v1/portfolios/{portfolioId}/holdings/{holdingId}` | 보유 정보 수정 | PORT-002 |
 | DELETE | `/api/v1/portfolios/{portfolioId}/holdings/{holdingId}` | 보유 종목 삭제 | PORT-002 |
-| POST | `/api/v1/holdings/{holdingId}/theses` | 투자 가정 추가 | ONB-004, THESIS-001 |
-| PATCH | `/api/v1/holdings/{holdingId}/theses/{thesisId}` | 투자 가정 수정·비활성화 | THESIS-001 |
-| DELETE | `/api/v1/holdings/{holdingId}/theses/{thesisId}` | 투자 가정 삭제 | THESIS-001 |
 | GET | `/api/v1/portfolios/{portfolioId}/dashboard` | 대시보드 조회 | DASH-001 |
 | GET | `/api/v1/portfolios/{portfolioId}/disclosures` | 보유 기업 공시 목록 | DISC-001 |
 | GET | `/api/v1/portfolios/{portfolioId}/disclosures/{receiptNo}/analysis` | 분석 결과 조회 | DISC-002 |
 | POST | `/api/v1/portfolios/{portfolioId}/disclosures/{receiptNo}/analysis` | 분석 생성·재생성 요청 | DISC-002 |
+
+### 6.4 `/api/v1/holdings`
+
+포트폴리오에서 식별된 보유 종목의 투자 가정을 관리한다.
+
+| Method | Path | 설명 | 화면 |
+|---|---|---|---|
+| POST | `/api/v1/holdings/{holdingId}/theses` | 투자 가정 추가 | ONB-004, THESIS-001 |
+| PATCH | `/api/v1/holdings/{holdingId}/theses/{thesisId}` | 투자 가정 수정·비활성화 | THESIS-001 |
+| DELETE | `/api/v1/holdings/{holdingId}/theses/{thesisId}` | 투자 가정 삭제 | THESIS-001 |
+
+### 6.5 `/api/v1/disclosures`
+
+포트폴리오에 종속되지 않는 공시 자체의 비교 결과를 조회한다.
+
+| Method | Path | 설명 | 화면 |
+|---|---|---|---|
 | GET | `/api/v1/disclosures/{receiptNo}/comparison` | 원공시·정정공시 비교 | DISC-003 |
+
+### 6.6 `/api/v1/questions`
+
+| Method | Path | 설명 | 화면 |
+|---|---|---|---|
 | POST | `/api/v1/questions` | 공시 기반 질문 | CHAT-001 |
+
+### 6.7 `/api/v1/answers`
+
+| Method | Path | 설명 | 화면 |
+|---|---|---|---|
 | GET | `/api/v1/answers/{answerRequestId}/evidence` | 답변 근거 상세 | CHAT-002 |
+
+### 6.8 `/api/v1/meta`
+
+| Method | Path | 설명 | 화면 |
+|---|---|---|---|
 | GET | `/api/v1/meta/analysis-policy` | 데이터·분석 기준 | SET-002 |
 
-### 6.2 내부·운영 API
+### 6.9 `/internal/v1/disclosure-sync-jobs`
 
 | Method | Path | 설명 |
 |---|---|---|
 | POST | `/internal/v1/disclosure-sync-jobs` | 보유 기업 공시 동기화 시작 |
 | GET | `/internal/v1/disclosure-sync-jobs/{jobId}` | 동기화 상태 조회 |
+
+### 6.10 `/actuator/health`
+
+| Method | Path | 설명 |
+|---|---|---|
 | GET | `/actuator/health` | 종합 상태 |
 | GET | `/actuator/health/readiness` | 요청 수신 준비 상태 |
 | GET | `/actuator/health/liveness` | 프로세스 생존 상태 |
