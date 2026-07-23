@@ -2,11 +2,12 @@
 
 | 항목 | 내용 |
 |---|---|
-| 문서 버전 | v0.1 |
+| 문서 버전 | v0.2 |
 | 문서 상태 | 구현 전 검토용 초안 |
 | 작성일 | 2026-07-23 |
 | 대상 | FolioLens MVP 웹 클라이언트·Spring 백엔드 |
 | 기준 문서 | `요구사항_정의서.md`, `기능명세서.md`, `IA.md`, `DECISIONS.md` |
+| 구현 기준 | `ApiResponse`, `ErrorCode`, `CustomException`, `GlobalExceptionHandler` |
 
 ## 1. 목적과 범위
 
@@ -33,6 +34,14 @@
 - 로그인·회원가입 및 운영 환경 인증 방식
 - 알림, 질문 기록, 공통 위험 전용 화면 등 P1 기능
 - 외부 OpenDART 사용 여부와 대회 제공 데이터 어댑터의 세부 계약
+
+### 1.1 v0.2 변경 사항
+
+- 실제 구현된 `ApiResponse<T>`의 `success`, `code`, `message`, `data` 구조를 모든 응답 예시에 반영했다.
+- 기존 예시의 응답 본문 `requestId`, `errorCode`, `retryable`, `details`를 현재 구현에 맞게 제거했다.
+- `CustomException`, `MethodArgumentNotValidException`, 미처리 `Exception`의 처리 결과를 구분했다.
+- 현재 구현된 `COMMON_*` 오류 코드와 앞으로 추가할 도메인 오류 코드를 분리했다.
+- 페이지 정보는 공통 응답의 최상위가 아니라 `data` 안에서 반환하도록 정리했다.
 
 ## 2. 설계 원칙
 
@@ -128,10 +137,10 @@ adapter.out.hyperclova
 | `Content-Type: application/json` | 본문이 있는 요청 | JSON 요청 |
 | `Accept: application/json` | 권장 | JSON 응답 |
 | `X-FolioLens-Session` | 사용자 데이터 API | 데모 세션 토큰 |
-| `X-Request-Id` | 선택 | 클라이언트가 전달한 추적 ID. 없으면 서버가 생성 |
+| `X-Request-Id` | 예정 | 요구사항상 필요한 추적 ID. 현재 공통 응답·예외 처리 코드에는 미구현 |
 | `Idempotency-Key` | 일부 POST | 동일 작업 중복 실행 방지 |
 
-서버는 모든 응답에 `X-Request-Id` 헤더를 포함한다.
+`X-Request-Id` 발급과 응답 헤더 전달은 요구사항에는 포함되지만 현재 코드에는 구현되지 않았다. 구현 전까지 API 응답 본문에도 `requestId`를 포함하지 않는다.
 
 ### 4.3 식별자
 
@@ -141,7 +150,7 @@ adapter.out.hyperclova
 | `holdingId` | UUID 문자열 |
 | `thesisId` | UUID 문자열 |
 | `analysisId` | UUID 문자열 |
-| `requestId` | UUID 또는 서버가 발급한 추적 문자열 |
+| `answerRequestId` | 자연어 질문 답변을 식별하는 문자열 |
 | `receiptNo` | 14자리 공시 접수번호 문자열 |
 | `corpCode` | 8자리 기업 고유번호 문자열 |
 | `stockCode` | 6자리 종목코드 문자열 |
@@ -174,30 +183,56 @@ adapter.out.hyperclova
 
 ### 4.6 성공 응답
 
-단건 응답:
+현재 모든 본문 있는 성공 응답은 `ApiResponse<T>`로 감싼다.
+
+- `success`: 항상 `true`
+- `code`: 현재 성공 팩토리에서 설정하지 않으므로 `null`
+- `message`: 기본값은 `요청이 성공적으로 처리되었습니다.`
+- `data`: API별 응답 DTO
+
+기본 성공 응답:
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {}
 }
 ```
 
-목록 응답:
+커스텀 성공 메시지도 사용할 수 있다.
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
-  "data": [],
-  "page": {
-    "number": 0,
-    "size": 20,
-    "totalElements": 0,
-    "totalPages": 0,
-    "hasNext": false
+  "success": true,
+  "code": null,
+  "message": "포트폴리오가 생성되었습니다.",
+  "data": {}
+}
+```
+
+목록과 페이지 정보도 `ApiResponse.data` 안에 포함한다.
+
+```json
+{
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
+  "data": {
+    "items": [],
+    "page": {
+      "number": 0,
+      "size": 20,
+      "totalElements": 0,
+      "totalPages": 0,
+      "hasNext": false
+    }
   }
 }
 ```
+
+`204 No Content` 응답은 본문이 없으므로 `ApiResponse`를 사용하지 않는다.
 
 ### 4.7 페이지네이션
 
@@ -215,16 +250,38 @@ sort=submittedAt,desc
 
 ### 4.8 오류 응답
 
+`CustomException` 응답:
+
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
-  "status": "FAILED",
-  "errorCode": "DISCLOSURE_NOT_FOUND",
-  "message": "조건에 맞는 공시를 찾지 못했습니다.",
-  "retryable": false,
-  "details": {
-    "receiptNo": "20260721000001"
-  }
+  "success": false,
+  "code": "COMMON_404_1",
+  "message": "요청한 리소스를 찾을 수 없습니다.",
+  "data": null
+}
+```
+
+`@Valid` 요청 검증 실패 응답:
+
+```json
+{
+  "success": false,
+  "code": null,
+  "message": "포트폴리오 이름은 필수입니다., 보유 비중은 0보다 커야 합니다.",
+  "data": null
+}
+```
+
+현재 `GlobalExceptionHandler`는 `MethodArgumentNotValidException`의 모든 필드 메시지를 `, `로 연결한다. 이 경로는 `ApiResponse.fail(String)`을 사용하므로 `code`가 `null`이다.
+
+처리되지 않은 예외 응답:
+
+```json
+{
+  "success": false,
+  "code": "COMMON_500_1",
+  "message": "서버 내부 오류가 발생했습니다.",
+  "data": null
 }
 ```
 
@@ -242,33 +299,64 @@ sort=submittedAt,desc
 | 503 | 일시적 서비스 불가 |
 | 504 | 외부 API 또는 모델 시간 초과 |
 
-주요 오류 코드:
+현재 구현된 오류 코드:
 
-| 오류 코드 | HTTP | 재시도 |
-|---|---:|---|
-| `INVALID_REQUEST` | 400 | 아니오 |
-| `VALIDATION_FAILED` | 400 | 아니오 |
-| `SESSION_REQUIRED` | 401 | 아니오 |
-| `SESSION_EXPIRED` | 401 | 아니오 |
-| `ACCESS_DENIED` | 403 | 아니오 |
-| `PORTFOLIO_NOT_FOUND` | 404 | 아니오 |
-| `HOLDING_NOT_FOUND` | 404 | 아니오 |
-| `THESIS_NOT_FOUND` | 404 | 아니오 |
-| `COMPANY_NOT_FOUND` | 404 | 아니오 |
-| `COMPANY_AMBIGUOUS` | 409 | 아니오 |
-| `DUPLICATE_HOLDING` | 409 | 아니오 |
-| `PORTFOLIO_WEIGHT_EXCEEDED` | 422 | 아니오 |
-| `DISCLOSURE_NOT_FOUND` | 404 | 아니오 |
-| `DISCLOSURE_CONTENT_MISSING` | 422 | 경우에 따라 가능 |
-| `CORRECTION_ORIGINAL_NOT_FOUND` | 422 | 경우에 따라 가능 |
-| `UNSUPPORTED_DISCLOSURE` | 422 | 아니오 |
-| `INSUFFICIENT_EVIDENCE` | 422 | 아니오 |
-| `ANALYSIS_ALREADY_RUNNING` | 409 | 예 |
-| `ANALYSIS_PARTIAL` | 200 | 경우에 따라 가능 |
-| `EXTERNAL_API_RATE_LIMITED` | 429 | 예 |
-| `EXTERNAL_API_UNAVAILABLE` | 502 | 예 |
-| `MODEL_TIMEOUT` | 504 | 예 |
-| `INTERNAL_ERROR` | 500 | 예 |
+| ErrorCode enum | 응답 코드 | HTTP | 기본 메시지 |
+|---|---|---:|---|
+| `INVALID_INPUT` | `COMMON_400_1` | 400 | 입력값이 올바르지 않습니다. |
+| `UNAUTHORIZED` | `COMMON_401_1` | 401 | 인증이 필요합니다. |
+| `FORBIDDEN` | `COMMON_403_1` | 403 | 접근 권한이 없습니다. |
+| `NOT_FOUND` | `COMMON_404_1` | 404 | 요청한 리소스를 찾을 수 없습니다. |
+| `INTERNAL_SERVER_ERROR` | `COMMON_500_1` | 500 | 서버 내부 오류가 발생했습니다. |
+
+도메인 오류 코드는 다음 규칙으로 `ErrorCode`에 추가한다.
+
+```text
+{DOMAIN}_{HTTP_STATUS}_{SEQUENCE}
+```
+
+예정된 도메인 오류:
+
+| Enum 이름 | 예정 코드 | HTTP |
+|---|---|---:|
+| `PORTFOLIO_NOT_FOUND` | `PORTFOLIO_404_1` | 404 |
+| `HOLDING_NOT_FOUND` | `HOLDING_404_1` | 404 |
+| `THESIS_NOT_FOUND` | `THESIS_404_1` | 404 |
+| `COMPANY_NOT_FOUND` | `COMPANY_404_1` | 404 |
+| `COMPANY_AMBIGUOUS` | `COMPANY_409_1` | 409 |
+| `DUPLICATE_HOLDING` | `HOLDING_409_1` | 409 |
+| `PORTFOLIO_WEIGHT_EXCEEDED` | `PORTFOLIO_422_1` | 422 |
+| `DISCLOSURE_NOT_FOUND` | `DISCLOSURE_404_1` | 404 |
+| `DISCLOSURE_CONTENT_MISSING` | `DISCLOSURE_422_1` | 422 |
+| `CORRECTION_ORIGINAL_NOT_FOUND` | `DISCLOSURE_422_2` | 422 |
+| `UNSUPPORTED_DISCLOSURE` | `DISCLOSURE_422_3` | 422 |
+| `INSUFFICIENT_EVIDENCE` | `ANALYSIS_422_1` | 422 |
+| `ANALYSIS_ALREADY_RUNNING` | `ANALYSIS_409_1` | 409 |
+| `EXTERNAL_API_RATE_LIMITED` | `EXTERNAL_429_1` | 429 |
+| `EXTERNAL_API_UNAVAILABLE` | `EXTERNAL_502_1` | 502 |
+| `MODEL_TIMEOUT` | `MODEL_504_1` | 504 |
+
+위 도메인 코드는 아직 `ErrorCode` enum에 구현되지 않았으므로 구현 전 이름과 순번을 팀에서 확정한다.
+
+### 4.9 예외 처리 흐름
+
+```text
+CustomException
+  → 예외가 가진 ErrorCode의 HTTP 상태 사용
+  → ApiResponse.fail(ErrorCode)
+
+MethodArgumentNotValidException
+  → HTTP 400
+  → 필드 오류 메시지를 쉼표로 연결
+  → ApiResponse.fail(String)
+
+그 밖의 Exception
+  → HTTP 500
+  → COMMON_500_1
+  → 내부 예외 메시지는 사용자에게 노출하지 않음
+```
+
+`CustomException(ErrorCode, String)` 생성자의 커스텀 메시지는 현재 핸들러가 `ApiResponse.fail(e.getErrorCode())`를 호출하기 때문에 응답에 반영되지 않는다. API 계약상 커스텀 메시지가 필요하면 핸들러 또는 응답 팩토리를 수정한 뒤 문서 버전을 올린다.
 
 `PARTIAL`은 가능한 경우 정상 응답으로 반환하고 누락 항목을 데이터에 표시한다. 전체 응답을 만들 수 없을 때만 오류 응답을 사용한다.
 
@@ -372,7 +460,9 @@ POST /api/v1/demo-sessions
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "sessionToken": "fls_7xVn...opaque-token",
     "expiresAt": "2026-07-24T10:00:00+09:00"
@@ -402,23 +492,27 @@ GET /api/v1/companies?query=삼성&listedOnly=true&page=0&size=20
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
-  "data": [
-    {
-      "corpCode": "00126380",
-      "stockCode": "005930",
-      "corpName": "삼성전자",
-      "market": "KOSPI",
-      "matchType": "EXACT_NAME",
-      "listed": true
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
+  "data": {
+    "items": [
+      {
+        "corpCode": "00126380",
+        "stockCode": "005930",
+        "corpName": "삼성전자",
+        "market": "KOSPI",
+        "matchType": "EXACT_NAME",
+        "listed": true
+      }
+    ],
+    "page": {
+      "number": 0,
+      "size": 20,
+      "totalElements": 1,
+      "totalPages": 1,
+      "hasNext": false
     }
-  ],
-  "page": {
-    "number": 0,
-    "size": 20,
-    "totalElements": 1,
-    "totalPages": 1,
-    "hasNext": false
   }
 }
 ```
@@ -452,7 +546,9 @@ POST /api/v1/portfolios
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "portfolioId": "69b13ed7-5a34-4f5b-9858-0a71d7035e92",
     "name": "내 포트폴리오",
@@ -475,7 +571,9 @@ GET /api/v1/portfolios/{portfolioId}
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "portfolioId": "69b13ed7-5a34-4f5b-9858-0a71d7035e92",
     "name": "내 포트폴리오",
@@ -562,7 +660,9 @@ POST /api/v1/portfolios/{portfolioId}/holdings
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "holdingId": "8aad34af-c7c9-4fd8-b191-39ae6609426a",
     "portfolioId": "69b13ed7-5a34-4f5b-9858-0a71d7035e92",
@@ -595,7 +695,9 @@ GET /api/v1/portfolios/{portfolioId}/holdings/{holdingId}
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "holdingId": "8aad34af-c7c9-4fd8-b191-39ae6609426a",
     "portfolioId": "69b13ed7-5a34-4f5b-9858-0a71d7035e92",
@@ -673,7 +775,9 @@ POST /api/v1/holdings/{holdingId}/theses
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "thesisId": "b00fb35b-9fde-48e8-b82b-29c3ec37209f",
     "holdingId": "8aad34af-c7c9-4fd8-b191-39ae6609426a",
@@ -747,7 +851,9 @@ GET /api/v1/portfolios/{portfolioId}/dashboard?limit=10
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "portfolio": {
       "portfolioId": "69b13ed7-5a34-4f5b-9858-0a71d7035e92",
@@ -892,7 +998,9 @@ Idempotency-Key: analysis-{portfolioId}-{receiptNo}-{inputVersion}
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "analysisId": "65f446ed-0afd-48f1-9c61-7432bb606179",
     "status": "PENDING",
@@ -913,7 +1021,9 @@ GET /api/v1/portfolios/{portfolioId}/disclosures/{receiptNo}/analysis
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "analysisId": "65f446ed-0afd-48f1-9c61-7432bb606179",
     "status": "PROCESSING",
@@ -1149,7 +1259,9 @@ GET /api/v1/disclosures/{receiptNo}/comparison?changedOnly=true
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "originalDisclosure": {
       "receiptNo": "20260312000001",
@@ -1204,7 +1316,9 @@ POST /api/v1/questions
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "answerRequestId": "answer-01K0EXAMPLE",
     "status": "SUCCESS",
@@ -1243,7 +1357,9 @@ POST /api/v1/questions
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "answerRequestId": "answer-01K0EXAMPLE",
     "status": "CLARIFICATION_REQUIRED",
@@ -1290,7 +1406,9 @@ IA 초안의 `{requestId}`는 질문 답변을 식별하는 값이다. HTTP 요�
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "answerRequestId": "answer-01K0EXAMPLE",
     "claims": [
@@ -1328,7 +1446,9 @@ GET /api/v1/meta/analysis-policy
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "serviceNotice": "FolioLens는 투자 권유가 아닌 공시 정보 분석 도구입니다.",
     "dataSources": [
@@ -1412,7 +1532,9 @@ Idempotency-Key: disclosure-sync-{portfolioId}-{from}-{to}
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "jobId": "fd756c8b-c94f-4a5b-92bb-e9a59c943535",
     "status": "PENDING",
@@ -1429,7 +1551,9 @@ GET /internal/v1/disclosure-sync-jobs/{jobId}
 
 ```json
 {
-  "requestId": "req-01K0EXAMPLE",
+  "success": true,
+  "code": null,
+  "message": "요청이 성공적으로 처리되었습니다.",
   "data": {
     "jobId": "fd756c8b-c94f-4a5b-92bb-e9a59c943535",
     "status": "COMPLETED",
@@ -1495,7 +1619,7 @@ modelVersion
 - 평균 매입가와 수량은 분석에 필요하지 않은 로그에서 제외한다.
 - 공시 원문의 문장을 시스템 명령으로 취급하지 않는다.
 - 질문, 투자 가정, 공시 본문은 모델 입력 데이터로 명확히 구분한다.
-- 모든 로그에 `requestId`, 처리 상태, 지연시간, 오류 코드를 기록한다.
+- 추적 ID 구현 후 모든 로그에 `requestId`, 처리 상태, 지연시간, 오류 코드를 기록한다.
 - 외부 호출 로그에는 공급자, 상태 코드, 지연시간만 기록하고 인증정보는 제거한다.
 - 다른 세션의 포트폴리오에 대한 존재 여부를 추측할 수 없도록 403/404 정책을 일관되게 적용한다.
 
