@@ -46,9 +46,4 @@ USER spring:spring
 
 EXPOSE 8080
 
-ENTRYPOINT [
-    "java",
-    "-XX:MaxRAMPercentage=75.0",
-    "-jar",
-    "/app/application.jar"
-]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/application.jar"]
