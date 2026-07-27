@@ -1,4 +1,4 @@
-package com.foliolens.backend.domain.domain;
+package com.foliolens.backend.domain;
 
 import java.time.LocalDateTime;
 
@@ -13,10 +13,10 @@ import lombok.Getter;
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-// 다른 엔티티들에서 공통으로 쓸 변수들임(삭제시간) 
+// 다른 엔티티들에서 공통으로 쓸 변수들임(생성시간, 수정시간) 
 // 걍 extends하면 자동으로 해당 엔티티 객체에 생성/적용됨.
-public abstract class DeletedTimeEntity { 
+public abstract class BaseCreatedEntity { 
     @CreatedDate
-    @Column(name = "deleted_at", updatable = false)
-    private LocalDateTime deletedAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 }
