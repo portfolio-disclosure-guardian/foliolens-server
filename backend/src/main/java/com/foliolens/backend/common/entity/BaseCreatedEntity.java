@@ -1,4 +1,4 @@
-package com.foliolens.backend.domain;
+package com.foliolens.backend.common.entity;
 
 import java.time.OffsetDateTime;
 

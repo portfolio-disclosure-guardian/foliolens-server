@@ -1,11 +1,9 @@
-package com.foliolens.backend.domain.owners.entity;
+package com.foliolens.backend.owner.entity;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import org.springframework.data.annotation.CreatedDate;
-
-import com.foliolens.backend.domain.BaseTimeEntity;
+import com.foliolens.backend.common.entity.BaseTimeEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

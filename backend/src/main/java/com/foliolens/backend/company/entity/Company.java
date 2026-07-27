@@ -1,7 +1,7 @@
 package com.foliolens.backend.company.entity;
 
 
-import com.foliolens.backend.domain.BaseTimeEntity;
+import com.foliolens.backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
