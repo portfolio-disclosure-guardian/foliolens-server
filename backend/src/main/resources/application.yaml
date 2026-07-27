@@ -4,3 +4,12 @@ spring:
 security:
   jwt:
     secret: ${JWT_SECRET_KEY}
+
+external:
+  opendart:
+    enabled: ${OPENDART_ENABLED:false}
+    corp-code-url: https://opendart.fss.or.kr/api/corpCode.xml
+    api-key: ${OPENDART_API_KEY:}
+    connect-timeout: 5s
+    request-timeout: 60s
+    max-zip-bytes: 52428800
