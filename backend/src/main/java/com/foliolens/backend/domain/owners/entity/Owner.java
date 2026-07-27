@@ -1,6 +1,6 @@
 package com.foliolens.backend.domain.owners.entity;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import org.springframework.data.annotation.CreatedDate;
@@ -41,7 +41,7 @@ public class Owner extends BaseTimeEntity {
 
     @CreatedDate
     @Column(name = "deleted_at",updatable = false)
-    private LocalDateTime deletedAt;
+    private OffsetDateTime deletedAt;
 
     @Builder
     public Owner(String password, String email){
