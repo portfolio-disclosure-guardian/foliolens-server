@@ -51,6 +51,8 @@ public class OpenDartCompanyDataProvider implements CompanyDataProvider {
             OpenDartProperties properties,
             OpenDartCompanyXmlParser xmlParser
     ) {
+        properties.validateForRequest();
+
         this.properties = properties;
         this.xmlParser = xmlParser;
 

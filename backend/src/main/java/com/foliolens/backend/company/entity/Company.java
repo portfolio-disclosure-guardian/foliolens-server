@@ -10,6 +10,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -21,7 +22,7 @@ public class Company {
 
     private static final Pattern CORP_CODE_PATTERN = Pattern.compile("^[0-9]{8}$");
 
-    private static final Pattern STOCK_CODE_PATTERN = Pattern.compile("^[0-9]{6}$");
+    private static final Pattern STOCK_CODE_PATTERN = Pattern.compile("^[0-9A-Z]{6}$");
 
     @Id
     @Column(name = "id", nullable = false)
@@ -157,7 +158,7 @@ public class Company {
             return null;
         }
 
-        return stockCode.trim();
+        return stockCode.trim().toUpperCase(Locale.ROOT);
     }
 
 

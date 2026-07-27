@@ -33,12 +33,12 @@ public record OpenDartProperties(
             throw new IllegalStateException("OpenDART 인증키는 40자리여야 합니다.");
         }
 
-        if (connectTimeout == null || connectTimeout.isNegative()) {
-            throw new IllegalStateException("OpenDART 연결 제한시간이 올바르지 않습니다.");
+        if (connectTimeout == null || connectTimeout.isZero() || connectTimeout.isNegative()) {
+            throw new IllegalStateException("OpenDART 연결 제한시간은 0보다 커야 합니다.");
         }
 
-        if (requestTimeout == null || requestTimeout.isNegative()) {
-            throw new IllegalStateException("OpenDART 요청 제한시간이 올바르지 않습니다.");
+        if (requestTimeout == null || requestTimeout.isZero() || requestTimeout.isNegative()) {
+            throw new IllegalStateException("OpenDART 요청 제한시간은 0보다 커야 합니다.");
         }
 
         if (maxZipBytes <= 0) {

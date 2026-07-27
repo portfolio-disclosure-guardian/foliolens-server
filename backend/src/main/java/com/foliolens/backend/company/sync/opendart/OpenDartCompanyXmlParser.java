@@ -62,11 +62,8 @@ public class OpenDartCompanyXmlParser {
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 // .xml 파일을 찾음
                 if (!entry.isDirectory() && entry.getName().toLowerCase().endsWith(".xml")) {
-                    List<CompanySyncItem> companies = parseXml(zipInputStream);
 
-                    zipInputStream.closeEntry();
-
-                    return companies;
+                    return parseXml(zipInputStream);
                 }
 
                 zipInputStream.closeEntry();
@@ -227,7 +224,7 @@ public class OpenDartCompanyXmlParser {
         }
 
         if (normalizedStockCode != null
-                && !normalizedStockCode.matches("^[0-9]{6}$")) {
+                && !normalizedStockCode.matches("^[0-9A-Z]{6}$")) {
             throw new CompanyDataProviderException(
                     "잘못된 OpenDART 종목코드: "
                             + normalizedStockCode
