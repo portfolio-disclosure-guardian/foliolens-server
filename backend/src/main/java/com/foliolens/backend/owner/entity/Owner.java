@@ -1,11 +1,9 @@
-package com.foliolens.backend.domain.owners.entity;
+package com.foliolens.backend.owner.entity;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-import org.springframework.data.annotation.CreatedDate;
-
-import com.foliolens.backend.domain.BaseTimeEntity;
+import com.foliolens.backend.common.entity.BaseTimeEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -39,8 +37,7 @@ public class Owner extends BaseTimeEntity {
     @Column(name = "owners_status")
     private OwnerStatus status;
 
-    @CreatedDate
-    @Column(name = "deleted_at",updatable = false)
+    @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
     @Builder
@@ -48,5 +45,10 @@ public class Owner extends BaseTimeEntity {
         this.password = password;
         this.email = email;
         this.status = OwnerStatus.ACTIVE;
+    }
+
+    public void delete() {
+        this.status = OwnerStatus.DELETED;
+        this.deletedAt = OffsetDateTime.now();
     }
 }

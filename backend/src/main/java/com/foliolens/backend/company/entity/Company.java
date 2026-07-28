@@ -1,15 +1,13 @@
 package com.foliolens.backend.company.entity;
 
 
+import com.foliolens.backend.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -18,7 +16,7 @@ import java.util.regex.Pattern;
 @Table(name = "companies")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Company {
+public class Company extends BaseTimeEntity {
 
     private static final Pattern CORP_CODE_PATTERN = Pattern.compile("^[0-9]{8}$");
 
@@ -55,14 +53,6 @@ public class Company {
     private LocalDate validFrom;
     @Column(name = "valid_to")
     private LocalDate validTo;
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
 
     private Company(
             UUID id,

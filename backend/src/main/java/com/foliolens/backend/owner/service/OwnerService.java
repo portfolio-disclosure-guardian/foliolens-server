@@ -1,12 +1,12 @@
-package com.foliolens.backend.domain.owners.service;
+package com.foliolens.backend.owner.service;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.foliolens.backend.common.exception.CustomException;
 import com.foliolens.backend.common.exception.ErrorCode;
-import com.foliolens.backend.domain.owners.entity.Owner;
-import com.foliolens.backend.domain.owners.repository.OwnerRepository;
+import com.foliolens.backend.owner.entity.Owner;
+import com.foliolens.backend.owner.repository.OwnerRepository;
 
 import lombok.RequiredArgsConstructor;
 
