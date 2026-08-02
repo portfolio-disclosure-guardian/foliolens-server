@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.foliolens.backend.answer.AnswerResult;
 import com.foliolens.backend.orchestration.DisclosureAnswerService;
-import com.foliolens.backend.retrieval.DisclosureRetriever;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +21,7 @@ public class EvaluationController {
     public ResponseEntity<AnswerResult> getAnswer(@RequestParam("question_id") String questionId,
             @RequestParam("question") String question) {
         //Ongoing..
-        return ResponseEntity.ok(disclosureAnswerService.getAnswer(questionId));
+
+        return ResponseEntity.ok(disclosureAnswerService.getAnswer(questionId,question));
     }
 }
