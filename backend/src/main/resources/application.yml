@@ -44,3 +44,6 @@ management:
 foliolens:
   dataset:
     root: ${FOLIOLENS_DATASET_ROOT:../foliolens-data}
+    version: ${FOLIOLENS_DATASET_VERSION:contest-2026q1-v1}
+    market-cap-as-of: ${FOLIOLENS_MARKET_CAP_AS_OF:2026-07-24}
+    import-companies-on-startup: ${FOLIOLENS_IMPORT_COMPANIES_ON_STARTUP:false}
