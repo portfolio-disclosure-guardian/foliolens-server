@@ -4,11 +4,13 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import com.foliolens.backend.disclosure.domain.DisclosureCategory;
+
 public record DisclosureSearchCommand(
     List<UUID> companyIds,
     OffsetDateTime from,
     OffsetDateTime to,
-    List<DisclosureType> disclosureTypes, //import 걸어놓으셈
+    List<DisclosureCategory> disclosureTypes,
     List<String> keywords,
     int limit
 ) {

@@ -1,9 +1,8 @@
 package com.foliolens.backend.question.entity;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
-import org.hibernate.annotations.JdbcType;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -62,17 +61,15 @@ public class QuestionRun extends BaseCreatedEntity{
     ErrorCode errorCode;
 
     @Column(name="completed_at",updatable = false)
-    OffsetDateTime completedAt;
+    Instant completedAt;
 
     @PrePersist
     @PreUpdate
     public void updateCompletionTimestamp() {
         if ("COMPLETED".equals(this.status) && this.completedAt == null) {
-            this.completedAt = OffsetDateTime.now();
+            this.completedAt = Instant.now();
         } else if (!"COMPLETED".equals(this.status)) {
             this.completedAt = null; // Clear if uncompleted
         }
     }
-
-    //기능명세서에 있던 channel, question은 아직 미작성
 }
