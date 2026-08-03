@@ -1,9 +1,9 @@
-package com.foliolens.backend.question.entity;
-
-import org.springframework.boot.actuate.endpoint.OperationType;
+package com.foliolens.backend.question.plan;
 
 import java.time.LocalDate;
 import java.util.List;
+
+import com.foliolens.backend.question.entity.QuestionType;
 
 public record QuestionPlan(QuestionType questionType,
         List<String> companyNames,
@@ -11,7 +11,7 @@ public record QuestionPlan(QuestionType questionType,
         LocalDate to,
         List<String> disclosureTypes,
         List<String> metrics,
-        List<OperationType> operations,
+        List<ToolName> toolNames,
         //AccountingBasis accountingBasis,
         boolean needsClarification,
         String clarificationReason) {
