@@ -1,6 +1,6 @@
 package com.foliolens.backend.domain;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -18,5 +18,5 @@ import lombok.Getter;
 public abstract class BaseCreatedEntity { 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 }

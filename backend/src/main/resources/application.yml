@@ -47,3 +47,4 @@ foliolens:
     version: ${FOLIOLENS_DATASET_VERSION:contest-2026q1-v1}
     market-cap-as-of: ${FOLIOLENS_MARKET_CAP_AS_OF:2026-07-24}
     import-companies-on-startup: ${FOLIOLENS_IMPORT_COMPANIES_ON_STARTUP:false}
+    import-disclosures-on-startup: ${FOLIOLENS_IMPORT_DISCLOSURES_ON_STARTUP:false}
