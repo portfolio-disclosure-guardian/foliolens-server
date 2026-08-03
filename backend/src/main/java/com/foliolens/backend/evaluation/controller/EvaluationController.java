@@ -1,4 +1,4 @@
-package com.foliolens.backend.evaluation;
+package com.foliolens.backend.evaluation.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,9 +19,8 @@ public class EvaluationController {
 
     @GetMapping("/answer")
     public ResponseEntity<AnswerResult> getAnswer(@RequestParam("question_id") String questionId,
-            @RequestParam("question") String question) {
+            @RequestParam String question) {
         //Ongoing..
-
         return ResponseEntity.ok(disclosureAnswerService.getAnswer(questionId,question));
     }
 }
