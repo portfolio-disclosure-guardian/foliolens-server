@@ -9,7 +9,7 @@ public record EvaluationAnswerResponse(
     @JsonProperty("question_id")
     String questionId,
 
-    String question,
+    String questionText,
 
     @JsonProperty("retrieved_context")
     List<RetrievedContextResponse> retrievedContext,
@@ -18,6 +18,6 @@ public record EvaluationAnswerResponse(
     @JsonProperty("think_trace")
     List<String> thinkTrace,
 
-    String answer
+    String answerText
 ) {
 }

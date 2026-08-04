@@ -8,8 +8,8 @@ import com.foliolens.backend.retrieval.RetrievedDocument;
 public record AnswerResult(
     String externalQuestionId,
     String originalQuestion,
-    List<RetrievedDocument> usedDocuments,
-    List<String> safeExecutionSummary,
-    String renderedAnswer
+    List<RetrievedDocument> usedDocuments, //최종 답변에 실제 사용한 공시만 포함
+    List<String> safeExecutionSummary, //검색·계산·검증의 공개 가능한 실행 요약
+    String renderedAnswer //검증이 끝난 최종 HCX의 자연어 답변
 ) {
 }
