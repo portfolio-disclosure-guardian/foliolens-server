@@ -19,8 +19,8 @@ public class DisclosureAnswerService {
         return new EvaluationAnswerResponse(
                 questionId,
                 question,
-                List.of(),
-                List.of(),
-                "답변 생성 기능이 아직 연결되지 않았습니다.");
+                List.of(), //검색 내용을 담는 부분. (검색 파트 미완으로 일단 비워놓음)
+                List.of(), //실행 추적 내용을 담는 부분. (실행 추적 파트 미완으로 일단 비워놓음)
+                "답변 생성 기능이 아직 연결되지 않았습니다."); //검증완료된 AI의 자연어 답변
     }
 }

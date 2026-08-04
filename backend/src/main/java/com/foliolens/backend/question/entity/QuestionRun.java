@@ -6,7 +6,6 @@ import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import com.foliolens.backend.answer.AnswerResult;
 import com.foliolens.backend.domain.BaseCreatedEntity;
 import com.foliolens.backend.global.exception.ErrorCode;
 import com.foliolens.backend.question.RequestChannel;
@@ -17,8 +16,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -46,16 +43,14 @@ public class QuestionRun extends BaseCreatedEntity{
     RequestChannel channel;
 
     @Column(name="status")
-    QuestionStatus status;
+    QuestionRunStatus status;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name="query_plan_json")
     JsonNode queryPlanJson; //queryPlan을 Postegre에 JSONB 형태로 저장
 
-    @OneToOne
-    @MapsId
-    @JoinColumn(name="answer")
-    AnswerResult answer;
+    @JoinColumn(name="answer_text")
+    String answerText; //해당 필드값은 계산,검증,금지 표현 필터링 등의 전처리를 거친 후의 HCX 답변 String
 
     @Column(name="error_code")
     ErrorCode errorCode;
@@ -66,9 +61,9 @@ public class QuestionRun extends BaseCreatedEntity{
     @PrePersist
     @PreUpdate
     public void updateCompletionTimestamp() {
-        if ("COMPLETED".equals(this.status) && this.completedAt == null) {
+        if (this.status==QuestionRunStatus.COMPLETED && this.completedAt == null) {
             this.completedAt = Instant.now();
-        } else if (!"COMPLETED".equals(this.status)) {
+        } else if (this.status!=QuestionRunStatus.COMPLETED) {
             this.completedAt = null; // Clear if uncompleted
         }
     }
