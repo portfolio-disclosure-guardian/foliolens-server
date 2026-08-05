@@ -1,0 +1,3 @@
+ALTER TABLE disclosure_documents
+ALTER COLUMN sha256 TYPE VARCHAR(64)
+    USING sha256::VARCHAR(64);

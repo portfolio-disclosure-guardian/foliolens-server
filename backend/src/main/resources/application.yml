@@ -48,3 +48,4 @@ foliolens:
     market-cap-as-of: ${FOLIOLENS_MARKET_CAP_AS_OF:2026-07-24}
     import-companies-on-startup: ${FOLIOLENS_IMPORT_COMPANIES_ON_STARTUP:false}
     import-disclosures-on-startup: ${FOLIOLENS_IMPORT_DISCLOSURES_ON_STARTUP:false}
+    import-documents-on-startup: ${FOLIOLENS_IMPORT_DOCUMENTS_ON_STARTUP:false}
