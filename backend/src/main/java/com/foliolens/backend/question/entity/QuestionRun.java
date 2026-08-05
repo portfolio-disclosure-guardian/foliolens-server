@@ -23,6 +23,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import tools.jackson.databind.JsonNode;
 import lombok.AccessLevel;
+import lombok.Builder;
 
 @Entity
 @Getter
@@ -33,16 +34,16 @@ public class QuestionRun extends BaseCreatedEntity{
     @GeneratedValue(strategy = GenerationType.UUID)
     UUID id; //질문,처리상태,답변,처리상태를 모두 총괄하는 하나의 트랜잭션이 갖는 ID
 
-    @Column(name="external_question_id")
+    @Column(name="external_question_id",nullable = false)
     String externalQuestionId; //평가 시스템이 보낸 Question ID
 
-    @Column(name="question_text")
+    @Column(name="question_text",nullable = false)
     String questionText; //사용자가 작성한 프롬프트
 
-    @Column(name="channel")
+    @Column(name="channel",nullable = false)
     RequestChannel channel;
 
-    @Column(name="status")
+    @Column(name="status",nullable = false)
     QuestionRunStatus status;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -66,5 +67,13 @@ public class QuestionRun extends BaseCreatedEntity{
         } else if (this.status!=QuestionRunStatus.COMPLETED) {
             this.completedAt = null; // Clear if uncompleted
         }
+    }
+
+    @Builder
+    public QuestionRun(String externalQuestionId, String questionText){
+        this.externalQuestionId=externalQuestionId;
+        this.questionText=questionText;
+        this.channel=RequestChannel.EVALUATION;
+        this.status=QuestionRunStatus.PENDING;
     }
 }

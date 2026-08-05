@@ -1,5 +1,11 @@
 package com.foliolens.backend.retrieval;
 
-public record RetrievedContextResponse() {
+import java.time.LocalDateTime;
+
+public record RetrievedContextResponse(Long receiptNo,
+        String reportName,
+        LocalDateTime submittedAt,
+        String section,
+        String content) {
 
 }
