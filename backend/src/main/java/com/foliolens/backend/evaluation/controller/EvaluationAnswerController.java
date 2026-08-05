@@ -15,12 +15,13 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequiredArgsConstructor
 public class EvaluationAnswerController {
-    private final DisclosureAnswerService evaluationAnswerService;
+    private final DisclosureAnswerService disclosureAnswerService;
 
     @GetMapping("/answer")
     public ResponseEntity<EvaluationAnswerResponse> getAnswer(@RequestParam("question_id") @NotBlank String questionId,
             @RequestParam("question") @NotBlank String questionText) {
         // Ongoing..
-        return ResponseEntity.ok(evaluationAnswerService.getAnswer(questionId, questionText));
+        disclosureAnswerService.getAnswer(questionId, questionText);
+        return ResponseEntity.ok(new EvaluationAnswerResponse(questionId, questionText, null, null, questionText));
     }
 }
