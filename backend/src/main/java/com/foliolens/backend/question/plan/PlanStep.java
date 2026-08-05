@@ -1,4 +1,6 @@
 package com.foliolens.backend.question.plan;
 
-public record PlanStep(Long stepId, ToolName tool, String arguments, String dependsOn) {
+import java.util.List;
+
+public record PlanStep(Long stepId, IntentType intent, String arguments, List<String> dependsOn) {
 }
