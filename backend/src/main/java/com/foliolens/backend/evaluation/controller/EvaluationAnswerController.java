@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.foliolens.backend.answer.dto.AnswerResult;
+import com.foliolens.backend.answer.AnswerResult;
 import com.foliolens.backend.evaluation.response.EvaluationAnswerResponse;
 import com.foliolens.backend.orchestration.DisclosureAnswerService;
 import com.foliolens.backend.question.AnswerQuestionCommand;

@@ -3,7 +3,7 @@ package com.foliolens.backend.evaluation.response;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.foliolens.backend.answer.dto.AnswerResult;
+import com.foliolens.backend.answer.AnswerResult;
 import com.foliolens.backend.retrieval.RetrievedContextResponse;
 
 public record EvaluationAnswerResponse(
