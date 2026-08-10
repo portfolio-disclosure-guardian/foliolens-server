@@ -47,6 +47,18 @@ public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDo
     List<DisclosureDocument> findAllBySha256(String sha256);
 
     /**
+     * 콘텐츠 형식별 문서를 ID 순서로 나누어 조회한다.
+     *
+     * XML 구조 배치 조사에서는 DART_XML 문서만 일정 개수씩 읽기 위해 사용한다.
+     * 연관된 공시 메타데이터도 결과 행에 필요하므로 EntityGraph로 함께 조회한다.
+     */
+    @EntityGraph(attributePaths = "disclosure")
+    Slice<DisclosureDocument> findAllByContentFormatOrderByIdAsc(
+            DisclosureDocumentContentFormat contentFormat,
+            Pageable pageable
+    );
+
+    /**
      * 파싱 상태별 파일을 제한된 배치 크기로 조회
      *
      * 파싱 과정에서 Disclosure의 sourceGroup 등이 필요하므로
