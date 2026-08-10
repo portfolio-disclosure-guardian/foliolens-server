@@ -49,3 +49,14 @@ foliolens:
     import-companies-on-startup: ${FOLIOLENS_IMPORT_COMPANIES_ON_STARTUP:false}
     import-disclosures-on-startup: ${FOLIOLENS_IMPORT_DISCLOSURES_ON_STARTUP:false}
     import-documents-on-startup: ${FOLIOLENS_IMPORT_DOCUMENTS_ON_STARTUP:false}
+
+  profiling:
+    xml-structure:
+      enabled: ${FOLIOLENS_PROFILE_XML_STRUCTURE_ON_STARTUP:false}
+      receipt-no: ${FOLIOLENS_PROFILE_XML_RECEIPT_NO:}
+      file-name: ${FOLIOLENS_PROFILE_XML_FILE_NAME:}
+      batch:
+        enabled: ${FOLIOLENS_PROFILE_XML_BATCH_ON_STARTUP:false}
+        page: ${FOLIOLENS_PROFILE_XML_BATCH_PAGE:0}
+        limit: ${FOLIOLENS_PROFILE_XML_BATCH_LIMIT:50}
+        report-path: ${FOLIOLENS_PROFILE_XML_BATCH_REPORT_PATH:./reports/xml-structure-profile.csv}
