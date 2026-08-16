@@ -1,5 +1,7 @@
 package com.foliolens.backend.disclosure.infrastructure.profiling;
 
+import com.foliolens.backend.disclosure.infrastructure.xml.DartXmlInputFactoryProvider;
+import com.foliolens.backend.disclosure.infrastructure.xml.DartXmlSourceFileValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,9 +14,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class XmlStructureProfilerTest {
 
-    private final XmlStructureProfiler profiler =
-            new XmlStructureProfiler();
+    private final DartXmlInputFactoryProvider
+            inputFactoryProvider =
+            new DartXmlInputFactoryProvider();
 
+    private final DartXmlSourceFileValidator
+            sourceFileValidator =
+            new DartXmlSourceFileValidator();
+
+    private final XmlStructureProfiler profiler =
+            new XmlStructureProfiler(
+                    inputFactoryProvider,
+                    sourceFileValidator
+            );
     @Test
     void profilesXmlWhenEnglishTitleUsesBareAngleBrackets(
             @TempDir Path tempDirectory

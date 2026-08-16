@@ -1,4 +1,4 @@
-package com.foliolens.backend.disclosure.infrastructure.profiling;
+package com.foliolens.backend.disclosure.infrastructure.parsing.validation;
 
 import com.foliolens.backend.global.exception.BusinessException;
 import com.foliolens.backend.global.exception.ErrorCode;
@@ -14,11 +14,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 
-/**
- * XML 구조 배치 조사 결과를 CSV 파일로 저장한다.
- */
 @Component
-public class XmlStructureProfileReportWriter {
+public class XmlParsingValidationReportWriter {
 
     private static final char UTF_8_BOM = '\uFEFF';
 
@@ -26,49 +23,30 @@ public class XmlStructureProfileReportWriter {
             CSVFormat.DEFAULT.builder()
                     .setHeader(
                             "disclosure_document_id",
-                            "source_doc_id",
                             "receipt_no",
                             "source_group",
-                            "raw_subtype",
                             "report_name",
-                            "correction",
                             "file_name",
                             "document_role",
-                            "content_format",
                             "file_size_bytes",
-                            "relative_path",
-                            "root_element_name",
-                            "document_name",
-                            "max_depth",
-                            "distinct_tag_count",
-                            "total_element_count",
-                            "tag_counts_summary",
-                            "section_1_count",
-                            "section_2_count",
-                            "section_3_count",
+
+                            "parsed_document_name",
+                            "section_count",
                             "max_section_level",
-                            "section_4_plus_count",
-                            "section_level_counts_summary",
-                            "title_count",
+                            "total_block_count",
+                            "heading_count",
                             "paragraph_count",
-                            "paragraph_inside_title_count",
+                            "page_break_count",
                             "table_count",
-                            "table_row_count",
-                            "table_header_count",
-                            "table_cell_count",
                             "nested_table_count",
-                            "max_table_depth",
-                            "paragraph_inside_table_count",
-                            "title_inside_table_count",
-                            "line_break_tag_count",
-                            "xml_comment_count",
-                            "image_candidate_tag_counts",
-                            "note_candidate_tag_counts",
-                            "repaired_ampersand_count",
-                            "repaired_less_than_count",
-                            "repaired_attribute_quote_count",
+                            "table_row_count",
+                            "table_cell_count",
+                            "image_count",
+                            "text_character_count",
+
                             "elapsed_millis",
                             "status",
+                            "warning_message",
                             "error_type",
                             "error_line",
                             "error_column",
@@ -76,15 +54,12 @@ public class XmlStructureProfileReportWriter {
                     )
                     .get();
 
-    /**
-     * 배치 결과를 지정한 CSV 파일에 저장하고 실제 저장 경로를 반환한다.
-     */
     public Path write(
             Path outputPath,
-            XmlStructureProfileBatchResult batchResult
+            XmlParsingValidationBatchResult batchResult
     ) {
         Path reportPath = normalizeOutputPath(outputPath);
-        XmlStructureProfileBatchResult result =
+        XmlParsingValidationBatchResult result =
                 Objects.requireNonNull(
                         batchResult,
                         "batchResult는 필수입니다."
@@ -105,7 +80,7 @@ public class XmlStructureProfileReportWriter {
             writer.write(UTF_8_BOM);
 
             try (CSVPrinter printer = new CSVPrinter(writer, CSV_FORMAT)) {
-                for (XmlStructureProfileRow row : result.rows()) {
+                for (XmlParsingValidationRow row : result.rows()) {
                     printRow(printer, row);
                 }
             }
@@ -113,7 +88,7 @@ public class XmlStructureProfileReportWriter {
             return reportPath;
         } catch (IOException exception) {
             throw datasetException(
-                    "XML 구조 조사 결과 CSV를 저장할 수 없습니다. path="
+                    "XML 파싱 검증 CSV를 저장하지 못했습니다. path="
                             + reportPath,
                     exception
             );
@@ -122,56 +97,37 @@ public class XmlStructureProfileReportWriter {
 
     private void printRow(
             CSVPrinter printer,
-            XmlStructureProfileRow row
+            XmlParsingValidationRow row
     ) throws IOException {
         printer.printRecord(
                 row.disclosureDocumentId(),
-                row.sourceDocId(),
                 row.receiptNo(),
                 row.sourceGroup(),
-                emptyIfNull(row.rawSubtype()),
                 row.reportName(),
-                row.correction(),
                 row.fileName(),
                 row.documentRole(),
-                row.contentFormat(),
                 row.fileSizeBytes(),
-                row.relativePath(),
-                emptyIfNull(row.rootElementName()),
-                emptyIfNull(row.documentName()),
-                row.maxDepth(),
-                row.distinctTagCount(),
-                row.totalElementCount(),
-                emptyIfNull(row.tagCountsSummary()),
-                row.section1Count(),
-                row.section2Count(),
-                row.section3Count(),
+
+                emptyIfNull(row.parsedDocumentName()),
+                row.sectionCount(),
                 row.maxSectionLevel(),
-                row.section4PlusCount(),
-                emptyIfNull(row.sectionLevelCountsSummary()),
-                row.titleCount(),
+                row.totalBlockCount(),
+                row.headingCount(),
                 row.paragraphCount(),
-                row.paragraphInsideTitleCount(),
+                row.pageBreakCount(),
                 row.tableCount(),
-                row.tableRowCount(),
-                row.tableHeaderCount(),
-                row.tableCellCount(),
                 row.nestedTableCount(),
-                row.maxTableDepth(),
-                row.paragraphInsideTableCount(),
-                row.titleInsideTableCount(),
-                row.lineBreakTagCount(),
-                row.xmlCommentCount(),
-                emptyIfNull(row.imageCandidateTagCountsSummary()),
-                emptyIfNull(row.noteCandidateTagCountsSummary()),
-                row.repairedAmpersandCount(),
-                row.repairedLessThanCount(),
-                row.repairedAttributeQuoteCount(),
+                row.tableRowCount(),
+                row.tableCellCount(),
+                row.imageCount(),
+                row.textCharacterCount(),
+
                 row.elapsedMillis(),
                 row.status().name(),
+                emptyIfNull(row.warningMessage()),
                 emptyIfNull(row.errorType()),
-                row.errorLine(),
-                row.errorColumn(),
+                emptyIfNull(row.errorLine()),
+                emptyIfNull(row.errorColumn()),
                 emptyIfNull(row.errorMessage())
         );
     }
@@ -179,7 +135,7 @@ public class XmlStructureProfileReportWriter {
     private Path normalizeOutputPath(Path outputPath) {
         if (outputPath == null) {
             throw datasetException(
-                    "XML 구조 조사 결과 경로가 설정되지 않았습니다."
+                    "XML 파싱 검증 결과 경로가 설정되지 않았습니다."
             );
         }
 
@@ -189,7 +145,7 @@ public class XmlStructureProfileReportWriter {
 
         if (Files.exists(normalized) && Files.isDirectory(normalized)) {
             throw datasetException(
-                    "XML 구조 조사 결과 경로는 디렉터리가 아닌 "
+                    "XML 파싱 검증 결과 경로는 디렉터리가 아닌 "
                             + "파일이어야 합니다. path="
                             + normalized
             );
@@ -209,15 +165,15 @@ public class XmlStructureProfileReportWriter {
             Files.createDirectories(parent);
         } catch (IOException exception) {
             throw datasetException(
-                    "XML 구조 조사 결과 디렉터리를 생성할 수 없습니다. path="
+                    "XML 파싱 검증 CSV 디렉터리를 생성하지 못했습니다. path="
                             + parent,
                     exception
             );
         }
     }
 
-    private String emptyIfNull(String value) {
-        return value == null ? "" : value;
+    private String emptyIfNull(Object value) {
+        return value == null ? "" : value.toString();
     }
 
     private BusinessException datasetException(String message) {

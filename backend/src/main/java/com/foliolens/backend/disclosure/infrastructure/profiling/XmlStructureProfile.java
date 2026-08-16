@@ -19,8 +19,12 @@ public record XmlStructureProfile(
         long fileSizeBytes, // 파일의 크기
         int maxDepth, // XML 태그의 최대 중첩 길이
         Map<String, Long> tagCounts, // 태그 이름별 등장 횟수
+
+        XmlAdditionalStructureProfile additionalStructure,
+
         long repairedAmpersandCount, // 읽기 과정에서 보정한 단독 & 개수
-        long repairedLessThanCount // 읽기 과정에서 보정한 단독 < 개수
+        long repairedLessThanCount, // 읽기 과정에서 보정한 단독 < 개수
+        long repairedAttributeQuoteCount
 ) {
 
     public XmlStructureProfile {
@@ -54,6 +58,19 @@ public record XmlStructureProfile(
          * 태그 이름순으로 정렬하고 외부에서 수정할 수 없게 만든다.
          */
         tagCounts = Collections.unmodifiableMap(new TreeMap<>(tagCounts));
+
+        additionalStructure =
+                Objects.requireNonNull(
+                        additionalStructure,
+                        "additionalStructure는 필수입니다."
+                );
+
+        if (repairedAttributeQuoteCount < 0) {
+            throw new IllegalArgumentException(
+                    "repairedAttributeQuoteCount는 "
+                            + "0 이상이어야 합니다."
+            );
+        }
     }
 
     /**
