@@ -71,6 +71,20 @@ public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDo
     );
 
     /**
+     * 아직 처리하지 않은 특정 콘텐츠 형식의 문서를 제한된 수만큼 조회한다.
+     *
+     * 파싱 결과를 저장하면 상태가 PENDING에서 COMPLETED 또는 FAILED로
+     * 변경되므로, 저장 배치는 항상 첫 페이지를 조회해 다음 대상을 고른다.
+     */
+    @EntityGraph(attributePaths = "disclosure")
+    Slice<DisclosureDocument>
+    findAllByContentFormatAndParseStatusOrderByIdAsc(
+            DisclosureDocumentContentFormat contentFormat,
+            DisclosureDocumentParseStatus parseStatus,
+            Pageable pageable
+    );
+
+    /**
      * 파싱 상태별 파일 수 조회
      */
     long countByParseStatus(DisclosureDocumentParseStatus parseStatus);

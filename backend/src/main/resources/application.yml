@@ -20,6 +20,9 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+          batch_size: ${JPA_BATCH_SIZE:500}
+        order_inserts: true
+        order_updates: true
 
   flyway:
     enabled: true
@@ -60,3 +63,19 @@ foliolens:
         page: ${FOLIOLENS_PROFILE_XML_BATCH_PAGE:0}
         limit: ${FOLIOLENS_PROFILE_XML_BATCH_LIMIT:50}
         report-path: ${FOLIOLENS_PROFILE_XML_BATCH_REPORT_PATH:./reports/xml-structure-profile.csv}
+
+  validation:
+    xml-parsing:
+      batch:
+        enabled: ${FOLIOLENS_VALIDATE_XML_PARSING_ON_STARTUP:false}
+        page: ${FOLIOLENS_VALIDATE_XML_PARSING_PAGE:0}
+        limit: ${FOLIOLENS_VALIDATE_XML_PARSING_LIMIT:50}
+        report-path: ${FOLIOLENS_VALIDATE_XML_PARSING_REPORT_PATH:./reports/xml-parsing-validation.csv}
+
+  parsing:
+    xml-persistence:
+      batch:
+        enabled: ${FOLIOLENS_PERSIST_XML_PARSING_ON_STARTUP:false}
+        chunk-size: ${FOLIOLENS_PERSIST_XML_PARSING_LIMIT:50}
+        max-documents: ${FOLIOLENS_PERSIST_XML_PARSING_MAX_DOCUMENTS:500}
+        max-failures: ${FOLIOLENS_PERSIST_XML_PARSING_MAX_FAILURES:10}
