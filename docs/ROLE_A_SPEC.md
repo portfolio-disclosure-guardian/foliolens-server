@@ -242,7 +242,6 @@ GET /answer?question_id={externalQuestionId}&question={urlEncodedQuestion}
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | `schemaVersion` | Integer | 예 | 지원 스키마 버전 |
-| `intents` | Set<IntentType> | 예 | 하나 이상의 질문 의도 후보 |
 | `companies[].mention` | String | 조건부 | 질문에 나타난 기업 표현. 내부 ID 생성 금지 |
 | `time.receiptPeriod` | DateRange/null | 아니오 | 공시 접수일 범위 |
 | `time.reportPeriods` | List<ReportPeriod> | 아니오 | 회계·보고 기준기간 |
@@ -251,7 +250,7 @@ GET /answer?question_id={externalQuestionId}&question={urlEncodedQuestion}
 | `steps` | List<PlanStepCandidate> | 예 | 순서와 의존성을 가진 실행 후보 |
 | `ambiguities` | List<Ambiguity> | 예 | 모호성, 없으면 `[]` |
 
-허용 `IntentType`은 `FACT_LOOKUP`, `COMPARISON`, `CALCULATION`, `HISTORY`, `SYNTHESIS`, `UNANSWERABLE_CHECK`다. 질문은 복수 의도를 가질 수 있다.
+별도 intent 분류는 두지 않는다. 필요한 작업은 `steps[].tool`과 구조화된 `input`으로 직접 표현하고, 검색할 공시 범위는 기업·기간·관심사와 단계 입력으로 결정한다.
 
 ### 7.3 RA-PLAN-002 검증 완료 계획
 
@@ -262,7 +261,6 @@ GET /answer?question_id={externalQuestionId}&question={urlEncodedQuestion}
 | `schemaVersion` | Integer | 예 | 후보와 같은 지원 버전 |
 | `companies[]` | List<ResolvedCompany> | 조건부 | `mention`, 검증된 `companyId`, 해소 상태 |
 | `time` | ValidatedTimeScope | 예 | 접수기간·보고기간·기준시점 분리 |
-| `intents` | Set<IntentType> | 예 | 허용 enum만 포함 |
 | `interestProfiles` | List<ProfileRef> | 예 | 검증된 코드와 profile version |
 | `steps` | List<PlanStep> | 예 | 검증된 도구·입력·의존성 |
 | `warnings` | List<PlanWarning> | 예 | 승인된 정규화·범위 축소 기록 |
@@ -275,7 +273,7 @@ GET /answer?question_id={externalQuestionId}&question={urlEncodedQuestion}
 2. 기업 표현의 유일한 `companyId` 해소 여부
 3. 날짜 형식, 접수기간·보고기간·기준시점의 의미 분리
 4. 데이터 범위와 `sourceProvider=CONTEST`
-5. 허용 intent·관심사·도구·연산 enum
+5. 허용 관심사·도구·연산 enum
 6. 단계 ID 중복, 누락 참조와 순환 의존성
 7. 도구별 입력 스키마와 이전 단계 출력 참조
 8. 단계 수, 문서 수, `limit`, `topK`의 설정 상한
@@ -500,7 +498,7 @@ P0 Must 연산은 `DIFFERENCE`, `CHANGE_RATE`, `RATIO`, `SUM`, `AVERAGE`, `DATE_
 
 | 호출 | 입력 | 출력 |
 |---|---|---|
-| `QUESTION_PLAN` | 질문, 후보 schema, 허용 intent·도구·관심사 | `QuestionPlanCandidate` JSON |
+| `QUESTION_PLAN` | 질문, 후보 schema, 허용 도구·관심사 | `QuestionPlanCandidate` JSON |
 | `ANSWER_COMPOSITION` | 검증 계획, fact, evidence, 계산, 정보 한계 | `AnswerCandidate` JSON |
 
 비정형 fact 후보 추출은 역할 B의 내부 파싱·추출 경계이며 역할 A의 plan-selected 호출로 만들지 않는다.
@@ -774,7 +772,7 @@ P0 Must 연산은 `DIFFERENCE`, `CHANGE_RATE`, `RATIO`, `SUM`, `AVERAGE`, `DATE_
 
 ### 16.2 RA-TEST-002 계획 테스트
 
-- 지원하지 않는 schema version·intent·관심사·도구·연산 거부
+- 지원하지 않는 schema version·관심사·도구·연산 거부
 - 기업 미해소와 복수 후보 처리
 - 접수기간·보고기간·`asOf` 분리
 - 중복 step, 순환 의존성, 없는 출력 참조 거부
