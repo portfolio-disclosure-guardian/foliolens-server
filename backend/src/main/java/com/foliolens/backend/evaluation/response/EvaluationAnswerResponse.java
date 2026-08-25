@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.foliolens.backend.answer.AnswerResult;
+import com.foliolens.backend.answer.ThinkTraceEntry;
 import com.foliolens.backend.retrieval.RetrievedContextResponse;
 
 public record EvaluationAnswerResponse(
@@ -14,11 +15,14 @@ public record EvaluationAnswerResponse(
                 @JsonProperty("retrieved_context") List<RetrievedContextResponse> retrievedContext,
 
                 // thinkTrace는 AI의 내부 사고과정이 아닙니다. "공시 3건을 검색했습니다", "증감률 계산을 수행했습니다" 같은 실행 기록입니다.
-                @JsonProperty("think_trace") List<String> thinkTrace,
+                @JsonProperty("think_trace") List<ThinkTraceEntry> thinkTrace,
 
                 @JsonProperty("answer") String answerText) {
         public static EvaluationAnswerResponse from(AnswerResult result) {
-                return new EvaluationAnswerResponse(result.externalQuestionId(), result.originalQuestion(), List.of(),
+                List<RetrievedContextResponse> retrievedContext = result.usedEvidences().stream()
+                                .map(RetrievedContextResponse::from)
+                                .toList();
+                return new EvaluationAnswerResponse(result.externalQuestionId(), result.originalQuestion(), retrievedContext,
                                 result.safeExecutionSummary(),
                                 result.renderedAnswer());
         }
