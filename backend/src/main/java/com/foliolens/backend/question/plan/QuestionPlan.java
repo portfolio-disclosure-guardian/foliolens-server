@@ -1,8 +1,7 @@
 package com.foliolens.backend.question.plan;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 
 import com.foliolens.backend.company.domain.Company;
 
@@ -11,8 +10,7 @@ import com.foliolens.backend.company.domain.Company;
 // AI가 만든 QuestionPlanCandidate에서 검증이 통과되어 허가된 QueryPlan
 public record QuestionPlan(Long schemaVersion,
                 List<Company> companies,
-                LocalDateTime time,
-                Set<IntentType> intents,
+                Instant time,
                 // List<> interestProfiles,
                 List<PlanStep> steps,
                 List<String> warnings) {

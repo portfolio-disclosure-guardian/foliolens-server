@@ -384,12 +384,6 @@ DisclosureCalculator.calculate(CalculationCommand, List<RetrievedFact>) -> Calcu
 
 | 문서 | 남은 불일치 |
 |---|---|
-| `요구사항_정의서.md` | 현재 평가 경로·구현 상태, intent 표현과 상태 축 정리 필요 |
-| `기능명세서.md` | `/api/v1/answer` 레거시 설명, `intents` 예시, 데이터/파서 구현 상태 갱신 필요 |
-| `TOOL_CONTRACTS.md` | 과거 `QuestionPlan` 구조와 미구현 데이터 파이프라인 스냅샷 갱신 필요 |
-| `API_명세서.md`, `API_상세_명세서.md` | 구현 상태, 구조화 `think_trace`와 최종 외부 타입 확정 시 함께 갱신 필요 |
-| `PROJECT_CONTEXT.md` | 2026-07-28 구현 상태 갱신 필요 |
-| `README.md` | 2026-08-04 경로·컴파일·데이터 파싱 상태와 실행 검증 문구 갱신 필요 |
 | `data-ingestion/03_role_a_progress_and_remaining_work.md` | 역할 A 과거 진행 보고서임을 명시하거나 보관 문서로 이동 필요 |
 
 ## 10. 역할 A P0 완료 정의
