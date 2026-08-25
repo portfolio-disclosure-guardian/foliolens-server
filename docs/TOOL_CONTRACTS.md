@@ -7,6 +7,8 @@
 | 기준일 | 2026-08-03 |
 | 상태 | 제안안. 공시 코퍼스 사실·목표 계약·현재 구현 상태를 구분해 서술 |
 
+> 2026-08-25 역할 A 동기화: `QuestionPlanCandidate`·`QuestionPlan` 경계와 현재 계획·오케스트레이션 골격만 갱신했다. `intentTypes` 포함 여부는 `DECISION_REQUIRED`로 유지하며, 데이터 파이프라인·검색·fact·계산 구현 상태와 역할 B·C 계약은 재판정하지 않았다.
+
 ## 1. 기술 요약
 
 초안의 방향인 “지표마다 도구를 만들지 않고 범용 도구를 조합한다”는 원칙은 유지한다. 다만 초안의 8개 이름을 그대로 Java 인터페이스 8개로 만들 필요는 없다.
@@ -544,9 +546,11 @@ overseas_listing.*
 
 관심사 프로필은 검색 순위를 높일 수 있지만, 질문이 명시한 공시 유형이나 factKey를 제거할 수 없다.
 
-## 11. 권장 QueryPlan
+## 11. 권장 QueryPlan — 결정 대기 포함
 
 초안처럼 스키마는 고정하되 접수기간·보고기간·기준시점과 retrieval request를 분리한다.
+
+아래 JSON은 목표 구조를 설명하는 과거 제안 예시이며 현재 Java DTO나 확정 schema가 아니다. 특히 `intentTypes` 포함 여부는 결정 대기 상태다. HCX가 만드는 `QuestionPlanCandidate`와 Spring 검증을 통과한 `QuestionPlan`은 별도 DTO여야 하며, 미해결 기업 표현·모호성은 후보에, 해소된 기업 참조·검증 step·정규화 warning은 검증 계획에 둔다.
 
 ~~~json
 {
@@ -590,9 +594,9 @@ overseas_listing.*
 }
 ~~~
 
-검증기는 `companyId`를 확정하고 허용 enum, 기간, 최대 문서 수, 단계 의존성을 검사한다. 계산 시에는 `inputBindings`를 실제 검증된 `factId`로 바꾼다.
+검증기는 후보에서 `companyId`를 확정하고 허용 enum, 기간, 최대 문서 수, 단계 의존성을 검사한 뒤 별도 `QuestionPlan`을 생성한다. 계산 시에는 `inputBindings`를 실제 검증된 `factId`로 바꾼다.
 
-현재 소스의 `QuestionPlan`은 단일 `questionType`, 문자열 `disclosureTypes`와 단순 `from/to`를 사용한다. 이 문서의 계약은 목표안이며 현재 구현 사실이 아니다.
+현재 작업 트리의 `QuestionPlan`은 `schemaVersion`, JPA `Company` 목록, 단일 `Instant`, `PlanStep` 목록과 warning을 가진 작업 중 골격이다. `QuestionPlanCandidate`는 단일 회사 문자열, 단순 `Instant from/to`, 관심 코드, 같은 `PlanStep` 타입과 모호성을 사용한다. 후보→검증 validator는 없고 `PlanStep` 입력도 자유 형식 문자열이므로, 이 문서의 목표 계약은 현재 구현 사실이 아니다.
 
 ## 12. 질문 유형별 실행 경로
 
@@ -658,7 +662,7 @@ overseas_listing.*
 | 항목 | 현재 확인 |
 |---|---|
 | 기업 데이터 | 기업 엔티티·Repository·CSV importer 존재 |
-| `QuestionPlan` | 작업 중 골격. 목표 의도·시간·관심사 계약 미반영 |
+| `QuestionPlan` | 작업 중 골격. 후보·검증 DTO가 완전히 분리되지 않았고 경계용 기업 참조·시간 구분·구조화 step input·validator가 없음 |
 | `DisclosureRetriever` | A-B 경계 인터페이스만 존재, 구현 없음 |
 | `RetrievalResult` | 빈 record |
 | 공시·section·chunk·fact Flyway | 현재 런타임 migration에 없음 |

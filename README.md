@@ -21,7 +21,7 @@ flowchart LR
     V --> O["평가 API 또는 웹 응답"]
 ```
 
-공시에서 확인할 수 없는 내용은 외부 지식으로 채우지 않는다. 일부만 확인되면 `PARTIAL`, 답할 근거가 없으면 `UNANSWERABLE`, 시스템 처리에 실패하면 `FAILED`로 구분한다.
+공시에서 확인할 수 없는 내용은 외부 지식으로 채우지 않는다. 정상 실행 뒤 일부만 확인되면 답변 결과를 `PARTIAL`, 답할 근거가 없으면 `UNANSWERABLE`로 구분한다. 시스템 처리 실패는 답변 결과와 섞지 않고 별도 실행 `FAILED`로 기록한다. 답변 결과 타입 이름과 판정 기준은 아직 확정하지 않았다.
 
 ## 제품 범위
 
@@ -86,18 +86,18 @@ foliolens-server/
 
 ## 현재 구현 상태
 
-2026-08-04 저장소 기준이며, 문서의 목표 설계와 현재 실행 가능한 기능을 구분한다.
+역할 A 상태는 2026-08-25 작업 트리 기준으로 갱신했다. 데이터 적재·파서·검색·fact·계산 등 역할 B 상태는 이번 작업에서 재판정하지 않았으므로 아래 표의 기존 스냅샷을 현재 완료 근거로 사용하면 안 된다.
 
 | 상태 | 영역 |
 |---|---|
 | 코드·구성 존재 | Docker 기반 Spring·PostgreSQL 실행 구성, 기업 CSV 적재, 공시 manifest 적재, `companies`·`disclosures`·`disclosure_documents` Flyway 스키마 |
-| 초기 뼈대 | 질문 계획 DTO, 검색 인터페이스, 오케스트레이션 서비스, 평가 응답 DTO와 `GET /api/v1/answer` |
+| 역할 A 초기 뼈대 | `GET /answer`, 내부 명령, 5개 키 평가 응답 DTO·전용 예외 경계, 질문 계획 DTO, `QuestionRun` 저장과 placeholder 오케스트레이션 서비스 |
 | 미구현 | 실제 원문 파일 등록, 원문 파싱·청킹, 사실·근거·계산 저장, 검색 구현체, 정정 이력, HyperCLOVA X 연동, 답변 검증 |
 | P1 이전 단계 | 프론트엔드는 Vite 기본 예제 수준이며 질문·근거 화면은 아직 구현되지 않음 |
 
-현재 평가 엔드포인트는 빈 검색·실행 기록과 임시 문구를 반환한다. 제출 목표인 `GET /answer`의 실제 검색·계산·생성 흐름이 연결된 상태는 아니다.
+현재 `GET /answer` 진입점은 존재하지만 `retrieved_context`는 항상 빈 배열이며 서비스는 `QuestionRun`을 `PENDING`으로 만든 뒤 임시 문구를 반환한다. 계획 검증·검색·계산·HyperCLOVA X·최종 검증과 run 종료 전이는 연결되지 않았다.
 
-> 검증 상태: 2026-08-04 현재 `compileJava`는 질문 계획 리팩터링의 타입명 불일치로 실패한다. 아래 내용은 의도된 로컬 실행 절차이며 현재 작업 트리의 빌드 성공을 뜻하지 않는다.
+> 검증 상태: 2026-08-25 현재 `backend\gradlew.bat compileJava --no-daemon --console=plain`은 성공했다. 이번 문서 동기화에서는 전체 테스트와 Docker 통합을 재검증하지 않았으므로 컴파일 성공을 기능 완료로 간주하지 않는다.
 
 ## 로컬 실행
 
@@ -142,6 +142,7 @@ npm run dev
 - [API 명세서](docs/API_명세서.md): 평가·웹 API 공통 계약
 - [데이터 카탈로그](docs/DATA_CATALOG.md): 실제 대회 데이터 구조
 - [도구 계약](docs/TOOL_CONTRACTS.md): QueryPlan 도구와 공시 라우팅
+- [역할 A 기능 명세](docs/ROLE_A_SPEC.md): 역할 A의 현재 코드 기준 P0 잔여 계약과 역할 경계
 - [기술 결정](docs/DECISIONS.md): 승인된 기술 선택
 
 ## 첫 번째 완료 목표

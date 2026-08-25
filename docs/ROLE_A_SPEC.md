@@ -105,8 +105,6 @@
 |---|---|---|
 | 평가 근거 매핑 | `EvaluationAnswerResponse.from`이 `retrieved_context`를 항상 `[]`로 생성 | 실제 사용 evidence만 snake_case DTO로 매핑하고 계약 테스트 통과 |
 | 실행 요약 | `think_trace`가 `List<String>` | 내부 `step`·`summary` 구조를 mapper에서 외부 규격으로 변환 |
-| 접수번호 타입 | `RetrievedContextResponse.receiptNo`가 `Long` | 선행 0과 원문 보존을 위해 `String` 사용 |
-| 평가 근거 날짜 | `submittedAt`이 `LocalDateTime` | wire 계약의 날짜·timezone·직렬화 형식을 확정하고 테스트 |
 | 공통 결과 | `AnswerResult`가 문서·문자열 요약·답변만 보유 | outcome, claims, used evidences, calculations, limitations, versions 추가 |
 | 오케스트레이션 | 질문 run 생성 후 placeholder 문구 반환 | 계획→검색→계산→생성→검증 연결 |
 | 계획 후보 | 회사·기간이 평면 값이고 후보 step도 검증 step과 같은 타입 | 후보 DTO와 검증 DTO 분리, 버전·모호성·구조화 입력 검증 |

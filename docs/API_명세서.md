@@ -9,6 +9,8 @@
 | 상세 계약 | `API_상세_명세서.md` |
 | 구현 기준 | Java 21, Spring Boot, PostgreSQL |
 
+> 2026-08-25 역할 A 동기화: 평가 API 진입점·mapper·예외 경계와 실행 상태 축의 현재 사실만 갱신했다. 인증·오류 body, `retrieved_context`·`think_trace` 최종 타입, intent schema와 역할 B·C 영역은 확정하지 않았다.
+
 ## 1. 목적과 범위
 
 본 문서는 FolioLens가 제공하는 평가 API, 웹 API, 내부 데이터 관리 API와 운영 API의 전체 구조와 공통 계약을 정의한다.
@@ -46,6 +48,8 @@ flowchart LR
     D --> E["평가 응답 Mapper"]
     D --> F["웹 응답 Mapper"]
 ```
+
+`QuestionAnswerUseCase`는 목표 개념명이다. 현재 역할 A 코어 경계는 `DisclosureAnswerService -> AnswerResult`이고 평가 어댑터가 이를 `EvaluationAnswerResponse`로 변환한다.
 
 - 평가 API와 웹 API는 같은 검색·계산·검증 결과를 사용한다.
 - URL과 DTO 차이는 어댑터에서 변환한다.
@@ -152,7 +156,7 @@ Authorization: Bearer {accessToken}
 
 ### 5.4 현재 코드와의 차이
 
-현재 `SecurityConfig`는 로그인·회원가입 외 모든 API에 JWT를 요구한다. 구현 시 다음 보안 체인 분리가 필요하다.
+현재 소스에서 아래 경로별 보안 체인은 확인되지 않았다. 특히 평가 API의 인증 방식은 운영진 규격 대기이므로 추측하지 않고, 규격 확정 뒤 다음 경계를 구현해야 한다.
 
 - 평가 API
 - 공개 조회 API
@@ -172,8 +176,8 @@ X-Demo-Session: web-demo-session-token
 Authorization: Bearer jwt-token
 ```
 
-- `X-Request-Id`가 없으면 서버가 생성한다.
-- 응답 헤더에 최종 request ID를 반환한다.
+- `X-Request-Id`가 없을 때 서버가 생성하는 동작은 목표 계약이며 현재 미구현이다(`REMAINING`).
+- 응답 헤더에 최종 request ID를 반환하는 동작도 현재 미구현이다(`REMAINING`).
 - GET 요청에는 `Content-Type`을 생략할 수 있다.
 
 ### 6.2 필드 이름
@@ -283,30 +287,29 @@ sort=submittedAt,desc
 
 ## 9. 공통 열거형
 
-### 9.1 질문 실행 상태
+### 9.1 질문 실행 상태와 답변 결과
+
+현재 코드의 `QuestionRunStatus`는 실행 생명주기만 나타낸다.
 
 | 값 | 의미 | 종료 상태 |
 |---|---|---|
-| RECEIVED | 요청 수신 | 아니요 |
-| PLANNING | 질문 분석 | 아니요 |
-| CLARIFICATION_REQUIRED | 사용자 확인 필요 | 아니요 |
-| RETRIEVING | 공시 검색 | 아니요 |
-| EXTRACTING | 사실 추출 | 아니요 |
-| CALCULATING | 비교·계산 | 아니요 |
-| GENERATING | 답변 작성 | 아니요 |
-| VALIDATING | 근거·수치 검증 | 아니요 |
-| COMPLETED | 전체 답변 완료 | 예 |
-| PARTIAL | 일부만 확인된 답변 | 예 |
-| UNANSWERABLE | 제공 공시로 답변 불가 | 예 |
-| FAILED | 처리 실패 | 예 |
+| `PENDING` | 실행 레코드 생성 후 처리 시작 전 | 아니요 |
+| `PROCESSING` | 계획·검색·계산·생성·검증 처리 중 | 아니요 |
+| `COMPLETED` | 정상 실행 종료 | 예 |
+| `FAILED` | 시스템·DB·모델·제한시간 등 실행 실패 | 예 |
+
+`PARTIAL`과 `UNANSWERABLE`은 실행 상태가 아니라 정상 실행 뒤 답변 충족도의 별도 축이다. 이 축의 최종 타입 이름과 판정 기준은 아직 확정하지 않았다. `PLANNING`, `RETRIEVAL`, `CALCULATION`, `VALIDATION` 같은 세부 단계는 당분간 구조화 로그와 안전한 실행 요약에만 사용한다.
 
 ### 9.2 요청 채널
 
-- `EVALUATION`
-- `WEB`
-- `PORTFOLIO`
+- `EVALUATION`: 현재 enum과 평가 command에서 확인됨(`CODE_CONFIRMED`)
+- `WEB`, `PORTFOLIO`: P1/P2 제안이며 현재 enum에는 없음
+
+현재 `AnswerQuestionCommand.channel`은 존재하지만 `QuestionRun` 생성자가 `EVALUATION`을 고정하므로 저장까지 전달되지 않는다(`REMAINING`).
 
 ### 9.3 질문 유형
+
+아래 목록은 별도 intent 필드를 전제로 한 legacy proposal이다. 현재 작업 트리에서는 `IntentType`이 제거됐지만 필드 제거 결정은 아직 `DECISION_REQUIRED`이므로 확정 공통 enum으로 사용하지 않는다.
 
 - `FACT_LOOKUP`
 - `COMPARISON`
@@ -437,6 +440,8 @@ sort=submittedAt,desc
 P2 상세 계약은 P0/P1 안정화 후 별도 버전에서 확정한다.
 
 ## 11. 핵심 웹 질문 계약
+
+> 이 장의 `RECEIVED`, `RETRIEVING`, `CLARIFICATION_REQUIRED` 등은 기존 P1 제안 예시이며 현재 `QuestionRunStatus` 구현 계약이 아니다. P1 진행 API를 구현하기 전 상태 모델을 별도로 결정해야 한다.
 
 ### 11.1 질문 실행 생성
 
@@ -724,7 +729,11 @@ GET /answer?question_id=q-001&question=A사의%202025년%20매출액은?
 | question_id | String | 예 | 평가 시스템의 질문 ID |
 | question | String | 예 | URL 인코딩된 자연어 질문 |
 
+`question_id`는 내부 `AnswerResult.externalQuestionId`로 보존하는 평가 correlation 값이다. `AnswerResult.runId`는 `QuestionRun.id`와 같은 내부 실행 UUID이며 현재 평가 5개 응답 키에는 노출하지 않는다. request ID는 이 둘과 별개인 HTTP 로그 상관값이다.
+
 ### 16.2 응답
+
+아래는 미확정 working example(`EXTERNAL_PENDING`)이다. 현재 mapper는 5개 최상위 키를 만들지만 `retrieved_context`를 항상 빈 배열로 두고 `think_trace`를 문자열 목록으로 반환한다. 최종 wire 타입이 확정되기 전에는 예시를 구현 완료 또는 확정 계약의 근거로 사용하지 않는다.
 
 ```json
 {
@@ -836,7 +845,8 @@ datasetVersion + sourceDocumentId + contentHash
 - external question ID
 - run ID
 - channel
-- 상태
+- `QuestionRunStatus` 실행 상태
+- 정상 실행 뒤 답변 충족도(타입명 미확정)
 - 사용 공시 ID
 - 데이터셋·검색·모델·프롬프트·계산 규칙 버전
 - 단계별 처리시간
@@ -867,7 +877,7 @@ datasetVersion + sourceDocumentId + contentHash
 | 질문 API | 미구현 |
 | 공시 목록·상세 | 미구현 |
 | 근거·계산 API | 미구현 |
-| 평가 API | 미구현 |
+| 평가 API | 부분 구현 — `GET /answer`, 내부 명령, 5개 응답 키와 평가 전용 예외 경계는 존재하나 실제 근거 매핑·HCX·검증·계약 테스트는 미완료 |
 | 데이터 적재 API | 미구현 |
 | Actuator | 의존성·기본 구성 존재 |
 | 포트폴리오 | ERD·문서 초안, 서비스 미구현 |
@@ -878,7 +888,8 @@ datasetVersion + sourceDocumentId + contentHash
 
 - 한글과 특수문자 URL 인코딩
 - `question_id` 보존
-- 필수 필드 존재
+- `question_id`, `question` 누락·빈 값·공백 400
+- 정확한 5개 최상위 키와 웹 `ApiResponse` 미사용
 - 답변 불가 시 동일 스키마
 - `think_trace`의 비밀정보 미포함
 - 응답 제한시간

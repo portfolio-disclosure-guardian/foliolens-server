@@ -10,6 +10,8 @@
 | 참가 부문 | 공시 Agent |
 | 예선 제출 기한 | 2026-09-06 |
 
+> 2026-08-25 역할 A 동기화: 질문 계획·평가 어댑터·실행 저장 골격의 현재 사실과 역할 A 잔여 작업만 갱신했다. 데이터 적재·파서·검색·fact·계산 등 역할 B 구현 상태와 미확정 외부 계약은 2026-07-28 스냅샷에서 재판정하지 않았다.
+
 ## 1. 문서 역할
 
 이 문서는 FolioLens의 목적, 범위, 핵심 제약, 기술 방향과 현재 상태를 빠르게 이해하기 위한 요약본이다.
@@ -267,6 +269,14 @@ flowchart LR
 
 ## 13. 현재 구현 상태
 
+이번 동기화에서 코드로 확인한 역할 A 기준선은 다음과 같다.
+
+- `EvaluationAnswerController`의 `GET /answer`, 평가 입력의 내부 명령 변환과 웹 래퍼를 사용하지 않는 5개 키 응답 DTO
+- `EvaluationExceptionHandler`의 평가 전용 요청·비즈니스·예상 밖 예외 경계
+- `QuestionPlanCandidate`, `QuestionPlan`, 5개 `ToolType`과 `DisclosureRetriever.retrieve(QuestionPlan)` seam의 골격
+- V5 `question_runs`, `QuestionRun` Entity·Repository·생성 Service
+- `DisclosureAnswerService`는 run을 `PENDING`으로 만든 뒤 실제 계획·검색·계산·HCX·검증 없이 placeholder를 반환하므로 end-to-end 구현은 아님
+
 ### 구현됨 또는 재사용 가능
 
 - Company 엔티티, Repository, 검색 Service·Controller
@@ -287,14 +297,14 @@ flowchart LR
 - 대회 제공 데이터 어댑터
 - 공시 원문 파서·섹션·청크
 - 검색 인덱스와 검색 서비스
-- 질문 분석과 실행 계획
+- HCX 계획 후보 생성, 후보→검증 계획 validator와 실제 실행 연결
 - 공시 사실 추출·검증
 - 결정적 계산 도구
 - 정정·후속공시 이력
-- HyperCLOVA X 클라이언트
+- HyperCLOVA X 계획·답변 클라이언트
 - 답변 생성과 주장별 근거
 - 답변 검증기
-- 평가 API
+- 평가 API의 실제 사용 evidence·안전 실행 요약 mapper, 공통 코어 연결과 계약 테스트
 - 골든셋 자동 평가
 
 ### Frontend
@@ -312,14 +322,13 @@ flowchart LR
 - ingestion_jobs
 - disclosure_sections
 - disclosure_chunks
-- question_runs
 - question_plans
 - retrieval_runs
 - retrieved_evidences
 - calculation_records
 - answer_validations
 
-현재 `agent_requests`가 owner와 portfolio를 필수로 참조하므로 일반 평가 질문을 표현할 수 없다. 포트폴리오와 독립적인 `question_runs`로 개정해야 한다.
+포트폴리오와 독립적인 V5 `question_runs`는 도입됐다. 다만 현재 역할 A 경로는 run을 `PENDING`으로 생성할 뿐 command channel, `PROCESSING`·종료 전이, 계획·답변·오류·완료시각 저장을 연결하지 않았다.
 
 ## 15. 문서 우선순위
 
@@ -348,14 +357,14 @@ flowchart LR
 
 현재 문서 기준의 다음 구현 준비 순서는 다음과 같다.
 
-1. ERD를 `question_runs`, 검색 근거와 계산 기록 중심으로 개정
+1. 기존 `question_runs`에 역할 A의 channel·상태 전이·계획·답변·오류·완료시각 저장 연결
 2. Flyway 스키마와 JPA 엔티티 변경 계획 확정
 3. 대회 데이터 수령 후 `DATA_CATALOG.md` 작성
-4. Agent의 `TOOL_CONTRACTS.md` 작성
+4. 별도 intent 필드 결정을 완료한 뒤 후보·검증 계획 schema를 고정하고 validator 구현
 5. 초기 골든 질문과 `EVALUATION_PLAN.md` 작성
 6. 소형 공시 fixture로 질문 하나의 수직 흐름 구현
 7. HyperCLOVA X 연동과 구조화 출력 검증
-8. 평가용 `GET /answer` 연결
+8. 기존 `GET /answer`에 실제 evidence·계산·답변·검증 결과를 연결하고 계약 테스트 수행
 
 첫 번째 기술 목표:
 

@@ -8,6 +8,8 @@
 | 상위 문서 | `API_명세서.md` v1.0 |
 | 기준 문서 | `요구사항_정의서.md`, `기능명세서.md`, `IA.md` |
 
+> 2026-08-25 역할 A 동기화: 평가 진입점, 응답 mapper의 현재 한계, `QuestionRun` 골격과 실행 상태 경계만 갱신했다. 미확정 wire 타입·인증·오류 body와 역할 B·C 계약은 변경하지 않았다.
+
 ## 1. 문서 범위
 
 본 문서는 FolioLens P0/P1 API의 URL별 상세 요청·응답 계약을 정의한다.
@@ -96,7 +98,7 @@ P2 포트폴리오 API는 경로만 보존하고 이번 상세 구현 범위에�
 X-Request-Id: client-request-id
 ```
 
-서버는 요청 헤더가 없으면 새 ID를 생성하고 응답 헤더에 반환한다.
+서버가 요청 헤더가 없을 때 새 ID를 만들고 응답 헤더에 반환하는 동작은 역할 A 목표 계약이며 현재 코드에서는 확인되지 않았다(`REMAINING`).
 
 ### 2.6 날짜·금액·비율
 
@@ -121,7 +123,7 @@ X-Request-Id: client-request-id
 
 - **URL:** `GET /answer`
 - **우선순위:** P0 Must
-- **상태:** 목표 계약
+- **상태:** 부분 구현
 - **인증:** 운영진 최종 규격 확인 필요
 - **응답 방식:** 동기
 
@@ -133,12 +135,16 @@ X-Request-Id: client-request-id
 - 공시에서 답을 찾을 수 없는 경우에도 추측하지 않고 정보 한계를 답변합니다.
 - 웹 API의 `ApiResponse<T>`로 감싸지 않습니다.
 
+현재 코드는 `GET /answer` Controller, 내부 명령, 공통 `AnswerResult`→평가 DTO mapper와 평가 전용 예외 경계를 제공한다. 그러나 서비스는 `QuestionRun`을 `PENDING`으로 생성한 뒤 placeholder 답변을 반환하며, `retrieved_context`는 항상 빈 배열이고 실제 검색·계산·HCX·최종 검증은 연결되지 않았다.
+
 #### Query Parameters
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | question_id | String | 예 | 평가 질문 식별자 |
 | question | String | 예 | URL 인코딩된 자연어 질문 |
+
+`question_id`는 내부 `AnswerResult.externalQuestionId`로 보존하는 평가 correlation 값이다. `AnswerResult.runId`는 `QuestionRun.id`와 같은 내부 실행 UUID이며 현재 평가 5개 응답 키에는 노출하지 않는다. request ID는 이 둘과 별개인 HTTP 로그 상관값이다.
 
 #### 요청 예시
 
@@ -202,7 +208,7 @@ GET /answer?question_id=q-001&question=A%EC%82%AC%EC%9D%98%202025%EB%85%84%20%EB
   "think_trace": [
     {
       "step": "RETRIEVAL",
-      "summary": "A사의 제공 공시에서 현재 주가 정보를 확인했습니다."
+      "summary": "A사의 제공 공시 범위를 확인했으나 현재 주가 자료는 포함되어 있지 않았습니다."
     },
     {
       "step": "VALIDATION",
@@ -223,7 +229,7 @@ GET /answer?question_id=q-001&question=A%EC%82%AC%EC%9D%98%202025%EB%85%84%20%EB
 | 처리 제한시간 초과 | 504 | 운영진 제한시간 적용 |
 | 내부 오류 | 500 | request ID 로그 기록 |
 
-`retrieved_context`와 `think_trace`의 최종 자료형은 운영진 공지가 우선한다.
+위 응답 예시와 필드 표는 미확정 working example(`EXTERNAL_PENDING`)이다. 현재 mapper는 `retrieved_context`를 항상 빈 배열로 만들고 `think_trace`는 `List<String>`으로 반환하므로 중첩 예시는 live 응답 계약이 아니다. 두 필드의 최종 자료형은 운영진 공지가 우선하며, 확정 전에는 현재 DTO의 in-flight 타입이나 이 예시 중 어느 쪽도 최종 wire 계약으로 간주하지 않는다.
 
 ## 4. 데모 세션 API
 
@@ -359,6 +365,8 @@ GET /api/v1/companies?query=삼성&listedOnly=true&page=0&size=20
 현재 `CompanySearchItemResponse`에는 `companyId`가 없으므로 목표 계약에 맞게 필드를 추가해야 합니다.
 
 ## 6. 질문 API
+
+> 이 장의 `RECEIVED`, `RETRIEVING`, `CLARIFICATION_REQUIRED` 등은 기존 P1 제안 예시이며 현재 `QuestionRunStatus` 구현 계약이 아니다. P1 진행 API를 구현하기 전 상태 모델을 별도로 결정해야 한다.
 
 ### 6.1 질문 실행 생성
 
@@ -1638,28 +1646,26 @@ GET /api/v1/portfolios/{portfolioId}/dashboard
 
 | 상황 | 표현 |
 |---|---|
-| 공시에서 답을 찾을 수 없음 | status=UNANSWERABLE, HTTP 200 |
-| 일부 항목만 확인됨 | status=PARTIAL, HTTP 200 |
+| 공시에서 답을 찾을 수 없음 | 답변 결과 `UNANSWERABLE`, HTTP 200 |
+| 일부 항목만 확인됨 | 답변 결과 `PARTIAL`, HTTP 200 |
 | 비교 기준 불일치 | limitations 또는 warnings |
 | 분모 0으로 계산 불가 | calculation.status=NOT_APPLICABLE |
 | 검색 결과가 빈 공시 목록 | items=[], HTTP 200 |
 
 ## 14. 질문 실행 상태별 계약
 
-| 상태 | answer | clarification | error | polling |
-|---|---|---|---|---|
-| RECEIVED | null | null | null | 계속 |
-| PLANNING | null | null | null | 계속 |
-| CLARIFICATION_REQUIRED | null | 존재 | null | 사용자 입력 대기 |
-| RETRIEVING | null | null | null | 계속 |
-| EXTRACTING | null | null | null | 계속 |
-| CALCULATING | null | null | null | 계속 |
-| GENERATING | null | null | null | 계속 |
-| VALIDATING | null | null | null | 계속 |
-| COMPLETED | 존재 | null | null | 종료 |
-| PARTIAL | 존재 | null | null | 종료 |
-| UNANSWERABLE | 존재 | null | null | 종료 |
-| FAILED | null 또는 검증된 부분 | null | 존재 | 종료 |
+현재 P0의 실행 생명주기는 `QuestionRunStatus` 한 축으로 제한한다.
+
+| 실행 상태 | answer | error | 종료 |
+|---|---|---|---|
+| `PENDING` | null | null | 아니요 |
+| `PROCESSING` | null | null | 아니요 |
+| `COMPLETED` | 검증된 답변 또는 정보 한계 | null | 예 |
+| `FAILED` | null | 존재 | 예 |
+
+`COMPLETED`, `PARTIAL`, `UNANSWERABLE`은 정상 실행 뒤 답변 충족도의 별도 축이며, `FAILED`를 이 축에 넣지 않는다. 별도 축의 최종 타입 이름과 판정 기준은 결정 대기다. `PLANNING`, `RETRIEVAL`, `CALCULATION`, `VALIDATION` 같은 단계는 P1 진행 UI가 실제로 필요하기 전 run 상태 enum으로 확정하지 않고 구조화 로그와 안전한 실행 요약으로 기록한다.
+
+현재 코드에는 실행 enum 네 값만 존재하고 서비스는 run을 `PENDING`으로 생성한 뒤 전이시키지 않는다. 위 전이와 answer·error·완료시각 저장은 목표 계약이다.
 
 ## 15. 보안 요구사항
 
@@ -1718,11 +1724,10 @@ GET  /api/v1/meta/**                 permitAll
 
 ### 17.4 데이터 모델
 
-기존 `agent_requests`의 owner·portfolio 필수 관계를 제거하거나 일반 `question_runs`를 도입해야 합니다.
+V5 `question_runs`와 `QuestionRun` Entity·Repository·생성 Service 골격은 존재합니다. 역할 A에는 command channel 전달, `PROCESSING`·종료 전이, 계획·답변·오류·완료시각 기록과 실행 ID 추적이 남아 있습니다.
 
-필수 추가 모델:
+그 밖의 목표 모델:
 
-- question_runs
 - question_plans
 - retrieval_runs
 - retrieved_evidences
@@ -1744,7 +1749,10 @@ GET  /api/v1/meta/**                 permitAll
 ### 평가 API
 
 - [ ] 한글 질문이 URL 디코딩되는가?
+- [ ] question_id·question의 누락·빈 값·공백이 400인가?
 - [ ] question_id가 그대로 반환되는가?
+- [ ] 질문 원문이 그대로 반환되는가?
+- [ ] 정확한 5개 최상위 키를 반환하고 웹 ApiResponse로 감싸지 않는가?
 - [ ] retrieved_context에 사용 근거만 포함되는가?
 - [ ] think_trace가 내부 사고과정을 포함하지 않는가?
 - [ ] 답변 불가도 같은 스키마와 HTTP 200으로 반환되는가?
