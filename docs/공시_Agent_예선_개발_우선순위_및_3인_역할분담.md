@@ -702,7 +702,7 @@ public interface DisclosureCalculator {
 ### 12.5 답변 코어
 
 ```java
-public interface DisclosureAnswerService {
+public interface OrchestrationAnswerService {
 
     AnswerResult answer(
             String questionId,
@@ -856,7 +856,7 @@ public interface DisclosureAnswerService {
 ### 팀원 A
 
 - `/answer` 요청·응답 DTO 작성
-- `DisclosureAnswerService` 인터페이스 작성
+- `OrchestrationAnswerService` 인터페이스 작성
 - HyperCLOVA X 최소 호출 예제 확인
 - 전체 요청 시간 예산 초안 작성
 

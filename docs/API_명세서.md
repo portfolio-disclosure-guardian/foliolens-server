@@ -49,7 +49,7 @@ flowchart LR
     D --> F["웹 응답 Mapper"]
 ```
 
-`QuestionAnswerUseCase`는 목표 개념명이다. 현재 역할 A 코어 경계는 `DisclosureAnswerService -> AnswerResult`이고 평가 어댑터가 이를 `EvaluationAnswerResponse`로 변환한다.
+`QuestionAnswerUseCase`는 목표 개념명이다. 현재 역할 A 코어 경계는 `OrchestrationAnswerService -> AnswerResult`이고 평가 어댑터가 이를 `EvaluationAnswerResponse`로 변환한다.
 
 - 평가 API와 웹 API는 같은 검색·계산·검증 결과를 사용한다.
 - URL과 DTO 차이는 어댑터에서 변환한다.

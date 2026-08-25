@@ -96,7 +96,7 @@
 - 전체 테스트 콘솔 요약 기준: 22개 중 1개 실패, 3개 skip. 테스트 태스크 종료 과정에서는 별도 `EOFException`도 발생했다.
 - 유일한 테스트 케이스 실패는 `BackendApplicationTests.contextLoads()`이며, 현재 로컬 기본 DB 환경의 PostgreSQL 인증 실패(`SQLSTATE 28P01`)로 재현됐다. 애플리케이션 코드 결함으로 확정된 것은 아니다.
 - 과거 문서의 `jpaAuditingHandler` 중복 실패 기록은 삭제한다. 현재 `@EnableJpaAuditing`은 `JpaConfig` 한 곳이다.
-- 평가 Controller·예외 mapper, 응답 mapper, `DisclosureAnswerService`, 계획 DTO·검증, `QuestionRun` 생명주기를 검증하는 테스트는 없다.
+- 평가 Controller·예외 mapper, 응답 mapper, `OrchestrationAnswerService`, 계획 DTO·검증, `QuestionRun` 생명주기를 검증하는 테스트는 없다.
 - Docker가 필요한 3개 테스트는 skip됐다. 이번 검토에서 Docker 가용성은 별도로 확인하지 않았으며 skip은 성공 검증으로 계산하지 않는다.
 
 ## 4. 현재 코드의 잔여 차이
