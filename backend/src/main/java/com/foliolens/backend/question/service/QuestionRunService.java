@@ -7,6 +7,8 @@ import com.foliolens.backend.question.repository.QuestionRunRepository;
 
 import lombok.RequiredArgsConstructor;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class QuestionRunService {
@@ -19,5 +21,10 @@ public class QuestionRunService {
                         .questionText(question)
                         .build());
         return questionRun;
+    }
+
+    public QuestionRun getQuestionRunByExternalQuestionId(String questionId) {
+        return questionRunRepository.findByExternalQuestionId(questionId)
+                .orElseThrow(() -> new RuntimeException("QuestionRun not found for questionId: " + questionId));
     }
 }
