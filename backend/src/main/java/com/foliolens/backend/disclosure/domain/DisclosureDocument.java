@@ -115,6 +115,25 @@ public class DisclosureDocument extends BaseTimeEntity {
     @Column(name = "parsed_at")
     private Instant parsedAt;
 
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "chunk_status", nullable = false, length = 20)
+    private DisclosureDocumentChunkStatus chunkStatus;
+
+    @Size(max = 100)
+    @Column(name = "chunk_generator_name", length = 100)
+    private String chunkGeneratorName;
+
+    @Size(max = 100)
+    @Column(name = "chunk_generator_version", length = 100)
+    private String chunkGeneratorVersion;
+
+    @Column(name = "chunk_error_message")
+    private String chunkErrorMessage;
+
+    @Column(name = "chunked_at")
+    private Instant chunkedAt;
+
     private DisclosureDocument(
             Disclosure disclosure,
             String relativePath,
@@ -241,6 +260,7 @@ public class DisclosureDocument extends BaseTimeEntity {
                 parsedAt,
                 "parsedAt은 필수입니다."
         );
+        resetChunking();
     }
 
     public void markPartial(
@@ -263,6 +283,7 @@ public class DisclosureDocument extends BaseTimeEntity {
                 parsedAt,
                 "parsedAt은 필수입니다."
         );
+        resetChunking();
     }
 
     public void markFailed(
@@ -285,6 +306,7 @@ public class DisclosureDocument extends BaseTimeEntity {
                 parsedAt,
                 "parsedAt은 필수입니다."
         );
+        resetChunking();
     }
 
     public void resetParsing() {
@@ -293,6 +315,70 @@ public class DisclosureDocument extends BaseTimeEntity {
         this.parserVersion = null;
         this.parseErrorMessage = null;
         this.parsedAt = null;
+        resetChunking();
+    }
+
+    public void markChunkingCompleted(
+            String generatorName,
+            String generatorVersion,
+            Instant chunkedAt
+    ) {
+        String validatedGeneratorName = requireNotBlank(
+                generatorName,
+                "generatorName"
+        );
+        String validatedGeneratorVersion = requireNotBlank(
+                generatorVersion,
+                "generatorVersion"
+        );
+        Instant validatedChunkedAt = Objects.requireNonNull(
+                chunkedAt,
+                "chunkedAt은 필수입니다."
+        );
+
+        this.chunkStatus = DisclosureDocumentChunkStatus.COMPLETED;
+        this.chunkGeneratorName = validatedGeneratorName;
+        this.chunkGeneratorVersion = validatedGeneratorVersion;
+        this.chunkErrorMessage = null;
+        this.chunkedAt = validatedChunkedAt;
+    }
+
+    public void markChunkingFailed(
+            String generatorName,
+            String generatorVersion,
+            String errorMessage,
+            Instant chunkedAt
+    ) {
+        String validatedGeneratorName = requireNotBlank(
+                generatorName,
+                "generatorName"
+        );
+        String validatedGeneratorVersion = requireNotBlank(
+                generatorVersion,
+                "generatorVersion"
+        );
+        String validatedErrorMessage = requireNotBlank(
+                errorMessage,
+                "errorMessage"
+        );
+        Instant validatedChunkedAt = Objects.requireNonNull(
+                chunkedAt,
+                "chunkedAt은 필수입니다."
+        );
+
+        this.chunkStatus = DisclosureDocumentChunkStatus.FAILED;
+        this.chunkGeneratorName = validatedGeneratorName;
+        this.chunkGeneratorVersion = validatedGeneratorVersion;
+        this.chunkErrorMessage = validatedErrorMessage;
+        this.chunkedAt = validatedChunkedAt;
+    }
+
+    public void resetChunking() {
+        this.chunkStatus = DisclosureDocumentChunkStatus.PENDING;
+        this.chunkGeneratorName = null;
+        this.chunkGeneratorVersion = null;
+        this.chunkErrorMessage = null;
+        this.chunkedAt = null;
     }
 
     private void setFileMetadata(

@@ -21,7 +21,12 @@ import java.util.Objects;
 @Component
 public class ParsedDisclosureEntityMapper {
 
-    private static final int STRUCTURED_CONTENT_SCHEMA_VERSION = 1;
+    /*
+     * TABLE v2부터 중첩 표의 parentContext가 저장된다.
+     * IMAGE payload 구조는 변경되지 않았으므로 v1을 유지한다.
+     */
+    private static final int TABLE_SCHEMA_VERSION = 2;
+    private static final int IMAGE_SCHEMA_VERSION = 1;
 
     private final ObjectMapper objectMapper;
 
@@ -192,7 +197,7 @@ public class ParsedDisclosureEntityMapper {
                     parsedBlock.order(),
                     toJson(
                             new TablePayload(
-                                    STRUCTURED_CONTENT_SCHEMA_VERSION,
+                                    TABLE_SCHEMA_VERSION,
                                     parsedBlock.table()
                             )
                     ),
@@ -207,7 +212,7 @@ public class ParsedDisclosureEntityMapper {
                     parsedBlock.order(),
                     toJson(
                             new ImagePayload(
-                                    STRUCTURED_CONTENT_SCHEMA_VERSION,
+                                    IMAGE_SCHEMA_VERSION,
                                     parsedBlock.image()
                             )
                     ),

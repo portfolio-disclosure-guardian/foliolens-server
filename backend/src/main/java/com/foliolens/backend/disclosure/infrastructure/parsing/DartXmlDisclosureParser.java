@@ -299,6 +299,15 @@ public class DartXmlDisclosureParser {
                             );
                         }
 
+                        /*
+                         * 중첩 표라면 부모 셀의 현재 텍스트 위치를 먼저 기록한다.
+                         * 이후 부모 셀이 닫힐 때 이 위치를 기준으로 표 앞·뒤의
+                         * 직접 텍스트 문맥을 계산한다.
+                         */
+                        if (!tableStack.isEmpty()) {
+                            tableStack.peek().startNestedTable();
+                        }
+
                         TableBuilder tableBuilder =
                                 new TableBuilder(
                                         documentBuilder.nextTableOrder(),
@@ -1158,6 +1167,16 @@ public class DartXmlDisclosureParser {
             currentRow.addNestedTable(nestedTable);
         }
 
+        private void startNestedTable() {
+            if (!hasOpenCell()) {
+                throw new IllegalStateException(
+                        "중첩 표를 시작할 현재 셀이 없습니다."
+                );
+            }
+
+            currentRow.startNestedTable();
+        }
+
         private void addImage(ParsedDisclosureImage image) {
             if (!hasOpenCell()) {
                 throw new IllegalStateException(
@@ -1276,6 +1295,16 @@ public class DartXmlDisclosureParser {
             currentCell.addNestedTable(nestedTable);
         }
 
+        private void startNestedTable() {
+            if (currentCell == null) {
+                throw new IllegalStateException(
+                        "중첩 표를 시작할 셀이 없습니다."
+                );
+            }
+
+            currentCell.startNestedTable();
+        }
+
         private void addImage(ParsedDisclosureImage image) {
             if (currentCell == null) {
                 throw new IllegalStateException(
@@ -1318,8 +1347,16 @@ public class DartXmlDisclosureParser {
 
         private final StringBuilder textBuffer = new StringBuilder();
 
-        private final List<ParsedDisclosureTable> nestedTables = new ArrayList<>();
+        private final List<NestedTableCapture> nestedTableCaptures =
+                new ArrayList<>();
         private final List<ParsedDisclosureImage> images = new ArrayList<>();
+
+        /*
+         * 직전에 끝난 중첩 표 이후부터 현재 위치까지가
+         * 다음 중첩 표의 precedingText가 된다.
+         */
+        private int adjacentTextStartOffset;
+        private NestedTableStart pendingNestedTable;
 
         private CellBuilder(
                 int cellIndex,
@@ -1354,7 +1391,48 @@ public class DartXmlDisclosureParser {
         }
 
         private void addNestedTable(ParsedDisclosureTable nestedTable) {
-            nestedTables.add(nestedTable);
+            if (pendingNestedTable == null) {
+                throw new IllegalStateException(
+                        "시작 위치가 기록되지 않은 중첩 표입니다."
+                );
+            }
+
+            int followingTextStartOffset = textBuffer.length();
+
+            nestedTableCaptures.add(
+                    new NestedTableCapture(
+                            Objects.requireNonNull(
+                                    nestedTable,
+                                    "nestedTable은 필수입니다."
+                            ),
+                            pendingNestedTable.precedingText(),
+                            pendingNestedTable.textStartOffset(),
+                            followingTextStartOffset
+                    )
+            );
+
+            adjacentTextStartOffset = followingTextStartOffset;
+            pendingNestedTable = null;
+        }
+
+        private void startNestedTable() {
+            if (pendingNestedTable != null) {
+                throw new IllegalStateException(
+                        "이전 중첩 표가 종료되기 전에 새로운 중첩 표가 시작됐습니다."
+                );
+            }
+
+            int textStartOffset = textBuffer.length();
+
+            pendingNestedTable = new NestedTableStart(
+                    textStartOffset,
+                    normalizeTableCellText(
+                            textBuffer.substring(
+                                    adjacentTextStartOffset,
+                                    textStartOffset
+                            )
+                    )
+            );
         }
 
         private void addImage(ParsedDisclosureImage image) {
@@ -1367,6 +1445,12 @@ public class DartXmlDisclosureParser {
         }
 
         private ParsedDisclosureTableCell build(int endLine) {
+            if (pendingNestedTable != null) {
+                throw new IllegalStateException(
+                        "종료되지 않은 중첩 표가 있는 상태에서 셀이 종료됐습니다."
+                );
+            }
+
             return new ParsedDisclosureTableCell(
                     cellIndex,
                     type,
@@ -1377,9 +1461,59 @@ public class DartXmlDisclosureParser {
                     ),
                     startLine,
                     endLine,
-                    nestedTables,
+                    buildNestedTablesWithContext(),
                     images
             );
+        }
+
+        private List<ParsedDisclosureTable> buildNestedTablesWithContext() {
+            List<ParsedDisclosureTable> nestedTables = new ArrayList<>(
+                    nestedTableCaptures.size()
+            );
+
+            for (int index = 0;
+                 index < nestedTableCaptures.size();
+                 index++) {
+                NestedTableCapture capture = nestedTableCaptures.get(index);
+
+                int followingTextEndOffset =
+                        index + 1 < nestedTableCaptures.size()
+                                ? nestedTableCaptures.get(index + 1)
+                                        .textStartOffset()
+                                : textBuffer.length();
+
+                String followingText = normalizeTableCellText(
+                        textBuffer.substring(
+                                capture.followingTextStartOffset(),
+                                followingTextEndOffset
+                        )
+                );
+
+                nestedTables.add(
+                        capture.table().withParentContext(
+                                new ParsedDisclosureTableContext(
+                                        capture.precedingText(),
+                                        followingText
+                                )
+                        )
+                );
+            }
+
+            return nestedTables;
+        }
+
+        private record NestedTableStart(
+                int textStartOffset,
+                String precedingText
+        ) {
+        }
+
+        private record NestedTableCapture(
+                ParsedDisclosureTable table,
+                String precedingText,
+                int textStartOffset,
+                int followingTextStartOffset
+        ) {
         }
     }
 

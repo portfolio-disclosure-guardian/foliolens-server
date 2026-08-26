@@ -18,7 +18,7 @@ public class DisclosureDocumentParsingService {
 
     private static final String PARSER_NAME = "DartXmlDisclosureParser";
 
-    private static final String PARSER_VERSION = "1.0.0";
+    private static final String PARSER_VERSION = "1.1.0";
 
     private final DartXmlDisclosureParser parser;
     private final DisclosureParsingPersistenceService persistenceService;

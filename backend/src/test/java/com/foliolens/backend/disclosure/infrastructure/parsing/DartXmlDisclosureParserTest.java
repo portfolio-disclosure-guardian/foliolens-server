@@ -78,10 +78,13 @@ class DartXmlDisclosureParserTest {
                                     <TR>
                                         <TH ROWSPAN="2" COLSPAN="3">구분</TH>
                                         <TD>
-                                            부모 셀
+                                            <P>표 앞 첫 문장</P>
+                                            <P>표 앞 둘째 문장</P>
                                             <TABLE>
                                                 <TR><TD>중첩 셀</TD></TR>
                                             </TABLE>
+                                            <P>표 뒤 첫 문장</P>
+                                            <P>표 뒤 둘째 문장</P>
                                         </TD>
                                     </TR>
                                 </TABLE>
@@ -99,17 +102,90 @@ class DartXmlDisclosureParserTest {
         assertEquals(2, headerCell.rowSpan());
         assertEquals(3, headerCell.colSpan());
         assertEquals(ParsedDisclosureTableCellType.HEADER, headerCell.type());
-        assertEquals("부모 셀", parentCell.text());
+        assertEquals(
+                "표 앞 첫 문장\n표 앞 둘째 문장\n표 뒤 첫 문장\n표 뒤 둘째 문장",
+                parentCell.text()
+        );
         assertTrue(parentCell.hasNestedTables());
+        assertNull(table.parentContext());
+
+        ParsedDisclosureTable nestedTable =
+                parentCell.nestedTables().getFirst();
+
+        assertTrue(nestedTable.hasParentContext());
+        assertEquals(
+                "표 앞 첫 문장\n표 앞 둘째 문장",
+                nestedTable.parentContext().precedingText()
+        );
+        assertEquals(
+                "표 뒤 첫 문장\n표 뒤 둘째 문장",
+                nestedTable.parentContext().followingText()
+        );
         assertEquals(
                 "중첩 셀",
-                parentCell.nestedTables()
-                        .getFirst()
+                nestedTable
                         .rows()
                         .getFirst()
                         .cells()
                         .getFirst()
                         .text()
+        );
+    }
+
+    @Test
+    void keepsAdjacentContextSeparateForMultipleNestedTables(
+            @TempDir Path tempDirectory
+    ) throws IOException {
+        ParsedDisclosureDocument document = parse(
+                tempDirectory,
+                """
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <DOCUMENT>
+                            <BODY>
+                                <TABLE>
+                                    <TR>
+                                        <TD>
+                                            시작 문맥
+                                            <TABLE>
+                                                <TR><TD>첫 번째 중첩 표</TD></TR>
+                                            </TABLE>
+                                            중간 문맥
+                                            <TABLE>
+                                                <TR><TD>두 번째 중첩 표</TD></TR>
+                                            </TABLE>
+                                            끝 문맥
+                                        </TD>
+                                    </TR>
+                                </TABLE>
+                            </BODY>
+                        </DOCUMENT>
+                        """
+        );
+
+        ParsedDisclosureTable rootTable =
+                document.preambleBlocks().getFirst().table();
+        ParsedDisclosureTableCell parentCell =
+                rootTable.rows().getFirst().cells().getFirst();
+        List<ParsedDisclosureTable> nestedTables =
+                parentCell.nestedTables();
+
+        assertEquals(2, nestedTables.size());
+        assertNull(rootTable.parentContext());
+        assertEquals(
+                "시작 문맥",
+                nestedTables.get(0).parentContext().precedingText()
+        );
+        assertEquals(
+                "중간 문맥",
+                nestedTables.get(0).parentContext().followingText()
+        );
+        assertEquals(
+                "중간 문맥",
+                nestedTables.get(1).parentContext().precedingText()
+        );
+        assertEquals(
+                "끝 문맥",
+                nestedTables.get(1).parentContext().followingText()
         );
     }
 

@@ -2,6 +2,7 @@ package com.foliolens.backend.disclosure.infrastructure.persistence;
 
 import com.foliolens.backend.disclosure.domain.DisclosureContentBlock;
 import com.foliolens.backend.disclosure.domain.DisclosureContentBlockType;
+import com.foliolens.backend.disclosure.domain.DisclosureDocumentChunkStatus;
 import com.foliolens.backend.disclosure.domain.DisclosureDocument;
 import com.foliolens.backend.disclosure.domain.DisclosureDocumentParseStatus;
 import com.foliolens.backend.disclosure.infrastructure.parsing.ParsedDisclosureBlock;
@@ -14,8 +15,10 @@ import com.foliolens.backend.disclosure.infrastructure.parsing.ParsedDisclosureT
 import com.foliolens.backend.disclosure.infrastructure.parsing.ParsedDisclosureTableCellType;
 import com.foliolens.backend.disclosure.infrastructure.parsing.ParsedDisclosureTableRow;
 import com.foliolens.backend.disclosure.repository.DisclosureContentBlockRepository;
+import com.foliolens.backend.disclosure.repository.DisclosureChunkRepository;
 import com.foliolens.backend.disclosure.repository.DisclosureDocumentRepository;
 import com.foliolens.backend.disclosure.repository.DisclosureSectionRepository;
+import com.foliolens.backend.disclosure.service.DisclosureDocumentChunkingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,6 +86,9 @@ class DisclosureParsingPersistenceIntegrationTest {
     DisclosureParsingFailureRecorder failureRecorder;
 
     @Autowired
+    DisclosureDocumentChunkingService chunkingService;
+
+    @Autowired
     DisclosureDocumentRepository documentRepository;
 
     @Autowired
@@ -90,6 +96,9 @@ class DisclosureParsingPersistenceIntegrationTest {
 
     @Autowired
     DisclosureContentBlockRepository blockRepository;
+
+    @Autowired
+    DisclosureChunkRepository chunkRepository;
 
     @Autowired
     JdbcTemplate jdbcTemplate;
@@ -183,7 +192,7 @@ class DisclosureParsingPersistenceIntegrationTest {
                         .getStructuredContent()
                         .get("schemaVersion")
                         .asInt()
-        ).isEqualTo(1);
+        ).isEqualTo(2);
         assertThat(
                 imageBlocks.getFirst()
                         .getStructuredContent()
@@ -293,6 +302,35 @@ class DisclosureParsingPersistenceIntegrationTest {
                 .isEqualTo(2);
         assertThat(blockRepository.countByDisclosureDocumentId(DOCUMENT_ID))
                 .isEqualTo(5);
+    }
+
+    @Test
+    void storedParsingResultCanBeGeneratedAndStoredAsSearchChunks() {
+        persistenceService.replaceParsedResult(
+                DOCUMENT_ID,
+                createFullParsedDocument(),
+                "test-parser",
+                "1.0.0"
+        );
+
+        DisclosureChunkPersistenceResult result =
+                chunkingService.generateAndStore(DOCUMENT_ID);
+
+        assertThat(result.savedChunkCount()).isPositive();
+        assertThat(result.savedSourceCount()).isPositive();
+        assertThat(chunkRepository.countByDisclosureDocumentId(DOCUMENT_ID))
+                .isEqualTo(result.savedChunkCount());
+
+        DisclosureDocument document = documentRepository
+                .findById(DOCUMENT_ID)
+                .orElseThrow();
+
+        assertThat(document.getChunkStatus())
+                .isEqualTo(DisclosureDocumentChunkStatus.COMPLETED);
+        assertThat(document.getChunkGeneratorName()).isNotBlank();
+        assertThat(document.getChunkGeneratorVersion()).isNotBlank();
+        assertThat(document.getChunkErrorMessage()).isNull();
+        assertThat(document.getChunkedAt()).isNotNull();
     }
 
     private ParsedDisclosureDocument createFullParsedDocument() {
