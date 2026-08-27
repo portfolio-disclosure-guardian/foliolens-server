@@ -275,7 +275,7 @@ flowchart LR
 - `EvaluationExceptionHandler`의 평가 전용 요청·비즈니스·예상 밖 예외 경계
 - `QuestionPlanCandidate`, `QuestionPlan`, 5개 `ToolType`과 `DisclosureRetriever.retrieve(QuestionPlan)` seam의 골격
 - V5 `question_runs`, `QuestionRun` Entity·Repository·생성 Service
-- `DisclosureAnswerService`는 run을 `PENDING`으로 만든 뒤 실제 계획·검색·계산·HCX·검증 없이 placeholder를 반환하므로 end-to-end 구현은 아님
+- `OrchestrationAnswerService`는 run을 `PENDING`으로 만든 뒤 실제 계획·검색·계산·HCX·검증 없이 placeholder를 반환하므로 end-to-end 구현은 아님
 
 ### 구현됨 또는 재사용 가능
 

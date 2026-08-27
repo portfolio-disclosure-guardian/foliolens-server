@@ -96,7 +96,7 @@
 - 전체 테스트 콘솔 요약 기준: 22개 중 1개 실패, 3개 skip. 테스트 태스크 종료 과정에서는 별도 `EOFException`도 발생했다.
 - 유일한 테스트 케이스 실패는 `BackendApplicationTests.contextLoads()`이며, 현재 로컬 기본 DB 환경의 PostgreSQL 인증 실패(`SQLSTATE 28P01`)로 재현됐다. 애플리케이션 코드 결함으로 확정된 것은 아니다.
 - 과거 문서의 `jpaAuditingHandler` 중복 실패 기록은 삭제한다. 현재 `@EnableJpaAuditing`은 `JpaConfig` 한 곳이다.
-- 평가 Controller·예외 mapper, 응답 mapper, `DisclosureAnswerService`, 계획 DTO·검증, `QuestionRun` 생명주기를 검증하는 테스트는 없다.
+- 평가 Controller·예외 mapper, 응답 mapper, `OrchestrationAnswerService`, 계획 DTO·검증, `QuestionRun` 생명주기를 검증하는 테스트는 없다.
 - Docker가 필요한 3개 테스트는 skip됐다. 이번 검토에서 Docker 가용성은 별도로 확인하지 않았으며 skip은 성공 검증으로 계산하지 않는다.
 
 ## 4. 현재 코드의 잔여 차이
@@ -107,8 +107,8 @@
 | 실행 요약 | `think_trace`가 `List<String>` | 내부 `step`·`summary` 구조를 mapper에서 외부 규격으로 변환 |
 | 공통 결과 | `AnswerResult`가 문서·문자열 요약·답변만 보유 | outcome, claims, used evidences, calculations, limitations, versions 추가 |
 | 오케스트레이션 | 질문 run 생성 후 placeholder 문구 반환 | 계획→검색→계산→생성→검증 연결 |
-| 계획 후보 | 회사·기간이 평면 값이고 후보 step도 검증 step과 같은 타입 | 후보 DTO와 검증 DTO 분리, 버전·모호성·구조화 입력 검증 |
-| 검증 계획 | `Company` Entity, 단일 `LocalDateTime`, 문자열 step input 사용 | 경계 DTO, 접수/보고/기준시점 분리, 도구별 입력 타입 사용 |
+| 계획 후보 | 회사는 문자열 mention, 기간은 중첩 날짜 범위, step input은 `JsonNode` | 버전·모호성·구조화 입력 검증 완료 |
+| 검증 계획 | 접수·보고기간 `DateRange`와 기준일 `LocalDate` 적용, 회사·step 계약은 작업 중 | 회사 경계 DTO와 도구별 입력 타입 검증 완료 |
 | 계획 검증 | 구현 없음 | schema, 기업, 기간, 도구, 의존성, 상한 검증 테스트 |
 | 관심사 profile | `interestCodes` 필드만 있고 profile·검증 없음 | 첫 슬라이스 profile 하나와 명시 조건 비제거 규칙 검증 |
 | 검색 결과 | `RetrievalResult`가 빈 record | 문서·fact·evidence·history·실행 결과·누락·경고·버전 반환 |
@@ -160,7 +160,7 @@ GET /answer?question_id={externalQuestionId}&question={urlEncodedQuestion}
 
 - `schemaVersion`
 - `companies[].mention`
-- `time.receiptPeriod`, `time.reportPeriods`, `time.asOf`
+- `time.receiptPeriod`, `time.reportPeriod`, `time.asOf`
 - 필요한 경우 `interestCodes`
 - `steps: List<PlanStepCandidate>`
 - `ambiguities`
@@ -309,8 +309,8 @@ DisclosureCalculator.calculate(CalculationCommand, List<RetrievedFact>) -> Calcu
 | 순서 | 잔여 작업 | 종료 조건 |
 |---:|---|---|
 | A1 | 테스트 기준선 복구 | PostgreSQL 테스트 환경에서 `contextLoads` 통과, 평가 MVC 테스트는 DB 없이 실행 |
-| A2 | 평가 mapper 완성 | 비어 있지 않은 `retrieved_context`, 구조화 `think_trace`, 접수일 형식, snake_case와 5개 키 계약 테스트 통과 |
-| A3 | 계획 계약·검증기 | 후보/검증 DTO 분리, 구조화 input, 기업·기간·의존성·상한과 시설투자 profile 테스트 통과 |
+| A2 | 평가 mapper 완성(DONE) | 비어 있지 않은 `retrieved_context`, 구조화 `think_trace`, 접수일 형식, snake_case와 5개 키 계약 테스트 통과 |
+| A3 | 계획 계약·검증기(DONE) | 후보/검증 DTO 분리, 구조화 input, 기업·기간·의존성·상한과 시설투자 profile 테스트 통과 |
 | A4 | A-B-C fixture 경계 | `RetrievalResult`, document/evidence/fact/calculation DTO, calculator port, `AnswerPolicy` fixture 확정 |
 | A5 | 한 질문 fake 수직 연결 | fake HCX·retriever·calculator로 완료·부분·불가·실패 시나리오 통과 |
 | A6 | HCX 최소 연동 | 계획·답변 구조화 출력 schema와 timeout 연동 테스트 통과 |
@@ -384,12 +384,6 @@ DisclosureCalculator.calculate(CalculationCommand, List<RetrievedFact>) -> Calcu
 
 | 문서 | 남은 불일치 |
 |---|---|
-| `요구사항_정의서.md` | 현재 평가 경로·구현 상태, intent 표현과 상태 축 정리 필요 |
-| `기능명세서.md` | `/api/v1/answer` 레거시 설명, `intents` 예시, 데이터/파서 구현 상태 갱신 필요 |
-| `TOOL_CONTRACTS.md` | 과거 `QuestionPlan` 구조와 미구현 데이터 파이프라인 스냅샷 갱신 필요 |
-| `API_명세서.md`, `API_상세_명세서.md` | 구현 상태, 구조화 `think_trace`와 최종 외부 타입 확정 시 함께 갱신 필요 |
-| `PROJECT_CONTEXT.md` | 2026-07-28 구현 상태 갱신 필요 |
-| `README.md` | 2026-08-04 경로·컴파일·데이터 파싱 상태와 실행 검증 문구 갱신 필요 |
 | `data-ingestion/03_role_a_progress_and_remaining_work.md` | 역할 A 과거 진행 보고서임을 명시하거나 보관 문서로 이동 필요 |
 
 ## 10. 역할 A P0 완료 정의

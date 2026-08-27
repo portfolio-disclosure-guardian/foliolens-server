@@ -66,7 +66,7 @@
 
 - `AnswerQuestionCommand`: 외부 질문 ID, 질문 원문, 요청 채널
 - `AnswerResult`: 공통 엔진이 반환할 내부 최종 결과
-- `DisclosureAnswerService`: 질문 처리 진입 서비스
+- `OrchestrationAnswerService`: 질문 처리 진입 서비스
 - `DisclosureRetriever`: 역할 A와 역할 B 사이의 검색 경계
 - `RetrievedDocument`, `RetrievalResult`: 검색 결과 계약의 초기 형태
 
@@ -74,12 +74,12 @@
 
 - `backend/src/main/java/com/foliolens/backend/question/AnswerQuestionCommand.java`
 - `backend/src/main/java/com/foliolens/backend/answer/AnswerResult.java`
-- `backend/src/main/java/com/foliolens/backend/orchestration/DisclosureAnswerService.java`
+- `backend/src/main/java/com/foliolens/backend/orchestration/OrchestrationAnswerService.java`
 - `backend/src/main/java/com/foliolens/backend/retrieval/DisclosureRetriever.java`
 
 현재 한계:
 
-- `DisclosureAnswerService`가 공통 `AnswerResult`가 아니라 평가 전용 `EvaluationAnswerResponse`를 직접 반환한다.
+- `OrchestrationAnswerService`가 공통 `AnswerResult`가 아니라 평가 전용 `EvaluationAnswerResponse`를 직접 반환한다.
 - `DisclosureRetriever`는 구현체가 없고 서비스에서 호출되지 않는다.
 - `RetrievalResult`는 빈 record다.
 - 검색·계산·생성·검증을 수행하지 않고 빈 목록과 미연결 안내 문구를 반환한다.
@@ -295,7 +295,7 @@ BeanDefinitionOverrideException: jpaAuditingHandler
 1. 중복 `@EnableJpaAuditing`을 한 곳으로 통합해 `contextLoads`를 통과시킨다.
 2. 평가 endpoint를 명세의 `GET /answer`로 맞춘다.
 3. JSON 필드를 `question`, `answer`로 직렬화하고 5개 필드 계약 테스트를 추가한다.
-4. `DisclosureAnswerService`가 평가 DTO가 아닌 `AnswerResult`를 반환하게 하고, 평가 adapter가 별도로 매핑한다.
+4. `OrchestrationAnswerService`가 평가 DTO가 아닌 `AnswerResult`를 반환하게 하고, 평가 adapter가 별도로 매핑한다.
 5. `question_runs` Flyway와 JPA 매핑을 맞추거나, 첫 수직 슬라이스에서 사용하지 않을 엔티티라면 실행 경로에서 분리한다.
 6. `QuestionPlan`, `QueryPlan`, `ToolName`을 `TOOL_CONTRACTS.md`와 하나의 계약으로 정리한다.
 
@@ -319,7 +319,7 @@ BeanDefinitionOverrideException: jpaAuditingHandler
 ```text
 EvaluationAnswerController
 → AnswerQuestionCommand
-→ DisclosureAnswerService
+→ OrchestrationAnswerService
 → AnswerResult
 → EvaluationAnswerResponse mapper
 ```
@@ -503,6 +503,6 @@ ID / 설명 / 우선순위 / 입력 / 출력 / 선행조건
 
 - 기획 기준: `PROJECT_CONTEXT.md`, `요구사항_정의서.md`, `기능명세서.md`, `IA.md`, `DECISIONS.md`, 역할 분담 문서
 - 도구 계약: `docs/TOOL_CONTRACTS.md`
-- 역할 A 코드: `evaluation/`, `orchestration/DisclosureAnswerService.java`, `answer/AnswerResult.java`, `question/`, `retrieval/`
+- 역할 A 코드: `evaluation/`, `orchestration/OrchestrationAnswerService.java`, `answer/AnswerResult.java`, `question/`, `retrieval/`
 - DB 기준: `backend/src/main/resources/db/migration/`
 - 실행 근거: Git 이력과 2026-08-04 로컬 `compileJava`, `test`, Docker 상태 확인 결과

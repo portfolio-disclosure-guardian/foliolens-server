@@ -1,6 +1,6 @@
 package com.foliolens.backend.retrieval;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDate;
 
 public record RetrievedDocument(
         String documentId,
@@ -8,7 +8,7 @@ public record RetrievedDocument(
         String stockCode,
         String disclosureType,
         String reportName,
-        OffsetDateTime submittedAt,
+        LocalDate submittedAt,
         String section,
         String content,
         double relevanceScore) {
