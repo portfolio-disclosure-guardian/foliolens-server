@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.foliolens.backend.answer.AnswerResult;
 import com.foliolens.backend.evaluation.response.EvaluationAnswerResponse;
-import com.foliolens.backend.orchestration.DisclosureAnswerService;
+import com.foliolens.backend.orchestration.OrchestrationAnswerService;
 import com.foliolens.backend.question.AnswerQuestionCommand;
 import com.foliolens.backend.question.RequestChannel;
 
@@ -17,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequiredArgsConstructor
 public class EvaluationAnswerController {
-    private final DisclosureAnswerService disclosureAnswerService;
+    private final OrchestrationAnswerService disclosureAnswerService;
 
     @GetMapping("/answer")
     public ResponseEntity<EvaluationAnswerResponse> getAnswer(@RequestParam("question_id") @NotBlank String questionId,

@@ -23,4 +23,6 @@ public interface CompanyRepository extends JpaRepository<Company, UUID> {
 
     // 현재 상장기업을 이름순으로 조회
     List<Company> findAllByListedTrueOrderByCorpNameAsc();
+
+    List<Company> findByCorpName(String corpName);
 }
