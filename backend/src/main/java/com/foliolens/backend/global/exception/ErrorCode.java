@@ -35,11 +35,16 @@ public enum ErrorCode {
 
     // 기업 오류
     COMPANY_404_1(HttpStatus.NOT_FOUND, "COMPANY_404_1", "제공 기업 목록에서 기업을 찾을 수 없습니다."),
+    COMPANY_409_1(HttpStatus.CONFLICT, "COMPANY_409_1", "기업명이 여러 기업과 일치합니다."),
 
     // 질문 오류
     QUESTION_400_1(HttpStatus.BAD_REQUEST, "QUESTION_400_1", "질문을 입력해 주세요."),
     QUESTION_400_2(HttpStatus.BAD_REQUEST, "QUESTION_400_2", "질문이 허용 길이를 초과했습니다."),
     QUESTION_400_3(HttpStatus.BAD_REQUEST, "QUESTION_400_3", "선택 가능한 기업 후보가 아닙니다."),
+    QUESTION_400_4(HttpStatus.BAD_REQUEST, "QUESTION_400_4", "계획 step의 입력 형식이 올바르지 않습니다."),
+    QUESTION_400_5(HttpStatus.BAD_REQUEST, "QUESTION_400_5", "질문 계획의 시간 형식이 올바르지 않습니다."),
+    QUESTION_400_6(HttpStatus.BAD_REQUEST, "QUESTION_400_6", "요청한 문서 개수가 허용 범위를 벗어났습니다."),
+    QUESTION_400_7(HttpStatus.BAD_REQUEST, "QUESTION_400_7", "계획 step의 참조가 올바르지 않습니다."),
     QUESTION_403_1(HttpStatus.FORBIDDEN, "QUESTION_403_1", "해당 질문 실행에 접근할 수 없습니다."),
     QUESTION_404_1(HttpStatus.NOT_FOUND, "QUESTION_404_1", "질문 실행을 찾을 수 없습니다."),
     QUESTION_409_1(HttpStatus.CONFLICT, "QUESTION_409_1", "현재 상태에서는 요청을 처리할 수 없습니다."),

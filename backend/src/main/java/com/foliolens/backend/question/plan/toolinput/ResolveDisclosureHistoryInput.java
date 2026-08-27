@@ -1,12 +1,5 @@
 package com.foliolens.backend.question.plan.toolinput;
 
-import com.foliolens.backend.disclosure.domain.DisclosureCategory;
-
-import java.util.List;
-
-public record ResolveDisclosureHistoryInput(List<DisclosureCategory> categories,
-                                            List<String> subtypes,
-                                            List<String> titleTerms,
-                                            int limit
-) implements ToolInput {
+// TODO: 4.2절 seedDisclosureIdsFrom/relationTypes 구조는 역할 B 계약 확정 후 채운다 (PLAN_STEP_INPUT_CONTRACT.md 11절 DECISION_REQUIRED)
+public record ResolveDisclosureHistoryInput() implements ToolInput{
 }

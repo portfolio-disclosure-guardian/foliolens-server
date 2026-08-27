@@ -1,4 +1,6 @@
 package com.foliolens.backend.question.plan.confirmation;
 
-public record ResolvedCompanyRef(Long companyId, String companyName) {
+import java.util.UUID;
+
+public record ResolvedCompanyRef(UUID companyId, String companyName) {
 }
