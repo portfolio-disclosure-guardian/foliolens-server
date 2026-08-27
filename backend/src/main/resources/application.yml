@@ -86,3 +86,18 @@ foliolens:
       batch-size: ${FOLIOLENS_CHUNKING_BATCH_SIZE:10}
       max-documents: ${FOLIOLENS_CHUNKING_MAX_DOCUMENTS:50}
       max-failures: ${FOLIOLENS_CHUNKING_MAX_FAILURES:5}
+
+  question:
+    plan:
+      search-disclosures:
+        # TOOL_CONTRACTS.md 5.1절 예시값. ROLE_A_SPEC.md 9.1절 DECISION_REQUIRED — 골든셋 측정 후 확정
+        limit-min: ${FOLIOLENS_PLAN_SEARCH_DISCLOSURES_LIMIT_MIN:1}
+        limit-max: ${FOLIOLENS_PLAN_SEARCH_DISCLOSURES_LIMIT_MAX:50}
+hcx:
+  api:
+    base-url: ${HCX_API_BASE_URL:https://api.hcx.com}
+    client-id: ${HCX_API_CLIENT_ID:change-this-client-id}
+    client-secret: ${HCX_API_CLIENT_SECRET:change-this-client-secret}
+    token:
+    url: ${HCX_API_TOKEN_URL:https://api.hcx.com/oauth/token}
+    grant-type: client_credentials No newline at end of file
