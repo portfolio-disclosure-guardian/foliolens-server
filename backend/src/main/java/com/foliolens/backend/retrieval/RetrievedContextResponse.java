@@ -16,7 +16,7 @@ public record RetrievedContextResponse(
         return new RetrievedContextResponse(
                 document.documentId(),
                 document.reportName(),
-                document.submittedAt().toLocalDate(),
+                document.submittedAt(),
                 document.section(),
                 document.content());
     }

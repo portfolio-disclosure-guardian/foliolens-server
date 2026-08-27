@@ -780,7 +780,7 @@ X-Demo-Session: {sessionToken}
       "companyName": "A사",
       "stockCode": "000000",
       "reportName": "신규시설투자등",
-      "submittedAt": "2025-01-01T10:00:00+09:00",
+      "submittedAt": "2025-01-01",
       "correction": false
     },
     "location": {
@@ -1018,7 +1018,7 @@ GET /api/v1/disclosures?companyId=company-uuid&category=PERIODIC&from=2024-01-01
         "reportName": "사업보고서",
         "category": "PERIODIC",
         "disclosureType": "ANNUAL_REPORT",
-        "submittedAt": "2025-03-20T09:00:00+09:00",
+        "submittedAt": "2025-03-20",
         "submitter": "A사",
         "correction": false,
         "parseStatus": "COMPLETED",
@@ -1046,7 +1046,7 @@ GET /api/v1/disclosures?companyId=company-uuid&category=PERIODIC&from=2024-01-01
 | reportName | String | 공시명 |
 | category | String | 공시 범주 |
 | disclosureType | String | 세부 공시 유형 |
-| submittedAt | OffsetDateTime | 접수 시각 |
+| submittedAt | LocalDate | 접수일 |
 | submitter | String/null | 제출인 |
 | correction | Boolean | 정정 여부 |
 | parseStatus | String | PENDING, COMPLETED, PARTIAL, FAILED |
@@ -1192,7 +1192,7 @@ GET /api/v1/disclosures/comparison?ids=id-1&ids=id-2
     "reportName": "신규시설투자등",
     "category": "EXCHANGE",
     "disclosureType": "FACILITY_INVESTMENT",
-    "submittedAt": "2025-01-01T10:00:00+09:00",
+    "submittedAt": "2025-01-01",
     "submitter": "A사",
     "correction": false,
     "parseStatus": "COMPLETED",

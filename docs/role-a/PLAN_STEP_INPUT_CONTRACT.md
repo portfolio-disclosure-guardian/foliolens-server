@@ -424,7 +424,7 @@ public interface ToolInput {
 | `ResolveDisclosureHistoryInput` | 검색 도구와 같은 필드 | 4.2의 이력 참조 구조로 교체 필요 |
 | `CalculateInput` | 참조 + `RATIO` binding | 첫 슬라이스 방향과 일치 |
 | `CalculationOperation` | `RATIO`만 존재 | 첫 슬라이스에는 충분, 이후 C 정책에 따라 확장 |
-| `PlanTime` | 세 값을 각각 단일 `Instant`로 표현 | receipt range·report period 목록·`asOf`로 분리 필요 |
+| `PlanTime` | 접수·보고기간 `DateRange`, `asOf` `LocalDate` | 적용 완료 |
 | 회사 ID | 계획은 `Long`, 검색 command는 `UUID` | 역할 A·B가 하나의 내부 ID 타입으로 합의 필요 |
 | search command | subtype·report period·`asOf`·correction policy를 표현하지 못하고 `keywords` 의미가 모호함 | 손실 없는 포트 계약 또는 첫 슬라이스 제한 결정 필요 |
 | wire 도구 필드 | 목표 문서는 `tool`, Java record는 `toolType` | rename 또는 명시적 JSON mapping 필요 |
@@ -438,12 +438,11 @@ public interface ToolInput {
 2. `facility.*`와 `investment.*` 중 표준 fact namespace
 3. `TABLE_ROW`를 저장·검색 단위로 지원할지와 최종 block type enum
 4. `RATIO` 이후 허용할 calculation operation과 operation별 binding 규칙
-5. 접수기간·보고기간·`asOf`의 최종 Java 값 객체
-6. 질문에 따른 정정 정책 선택을 planner에 노출할 시점
-7. history resolver가 사건 키를 seed에서 검증할지, 검증된 `EventRef` 입력을 별도로 받을지
-8. HCX wire 필드 `tool`과 Java 필드 `toolType`의 매핑 방식
-9. 현재 `DisclosureSearchCommand`를 확장할지, 표현할 수 없는 검색 조건을 첫 슬라이스에서 금지할지
-10. 다중 기업 계획에서 step별 기업 subset selector를 언제 도입할지
+5. 질문에 따른 정정 정책 선택을 planner에 노출할 시점
+6. history resolver가 사건 키를 seed에서 검증할지, 검증된 `EventRef` 입력을 별도로 받을지
+7. HCX wire 필드 `tool`과 Java 필드 `toolType`의 매핑 방식
+8. 현재 `DisclosureSearchCommand`를 확장할지, 표현할 수 없는 검색 조건을 첫 슬라이스에서 금지할지
+9. 다중 기업 계획에서 step별 기업 subset selector를 언제 도입할지
 
 이 결정을 기다리는 동안 임의 alias, 자동 타입 변환, 자유 문자열 fallback을 추가하지 않는다.
 

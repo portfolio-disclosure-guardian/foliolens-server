@@ -107,8 +107,8 @@
 | 실행 요약 | `think_trace`가 `List<String>` | 내부 `step`·`summary` 구조를 mapper에서 외부 규격으로 변환 |
 | 공통 결과 | `AnswerResult`가 문서·문자열 요약·답변만 보유 | outcome, claims, used evidences, calculations, limitations, versions 추가 |
 | 오케스트레이션 | 질문 run 생성 후 placeholder 문구 반환 | 계획→검색→계산→생성→검증 연결 |
-| 계획 후보 | 회사·기간이 평면 값이고 후보 step도 검증 step과 같은 타입 | 후보 DTO와 검증 DTO 분리, 버전·모호성·구조화 입력 검증 |
-| 검증 계획 | `Company` Entity, 단일 `LocalDateTime`, 문자열 step input 사용 | 경계 DTO, 접수/보고/기준시점 분리, 도구별 입력 타입 사용 |
+| 계획 후보 | 회사는 문자열 mention, 기간은 중첩 날짜 범위, step input은 `JsonNode` | 버전·모호성·구조화 입력 검증 완료 |
+| 검증 계획 | 접수·보고기간 `DateRange`와 기준일 `LocalDate` 적용, 회사·step 계약은 작업 중 | 회사 경계 DTO와 도구별 입력 타입 검증 완료 |
 | 계획 검증 | 구현 없음 | schema, 기업, 기간, 도구, 의존성, 상한 검증 테스트 |
 | 관심사 profile | `interestCodes` 필드만 있고 profile·검증 없음 | 첫 슬라이스 profile 하나와 명시 조건 비제거 규칙 검증 |
 | 검색 결과 | `RetrievalResult`가 빈 record | 문서·fact·evidence·history·실행 결과·누락·경고·버전 반환 |
@@ -160,7 +160,7 @@ GET /answer?question_id={externalQuestionId}&question={urlEncodedQuestion}
 
 - `schemaVersion`
 - `companies[].mention`
-- `time.receiptPeriod`, `time.reportPeriods`, `time.asOf`
+- `time.receiptPeriod`, `time.reportPeriod`, `time.asOf`
 - 필요한 경우 `interestCodes`
 - `steps: List<PlanStepCandidate>`
 - `ambiguities`
@@ -310,7 +310,7 @@ DisclosureCalculator.calculate(CalculationCommand, List<RetrievedFact>) -> Calcu
 |---:|---|---|
 | A1 | 테스트 기준선 복구 | PostgreSQL 테스트 환경에서 `contextLoads` 통과, 평가 MVC 테스트는 DB 없이 실행 |
 | A2 | 평가 mapper 완성(DONE) | 비어 있지 않은 `retrieved_context`, 구조화 `think_trace`, 접수일 형식, snake_case와 5개 키 계약 테스트 통과 |
-| A3 | 계획 계약·검증기 | 후보/검증 DTO 분리, 구조화 input, 기업·기간·의존성·상한과 시설투자 profile 테스트 통과 |
+| A3 | 계획 계약·검증기(DONE) | 후보/검증 DTO 분리, 구조화 input, 기업·기간·의존성·상한과 시설투자 profile 테스트 통과 |
 | A4 | A-B-C fixture 경계 | `RetrievalResult`, document/evidence/fact/calculation DTO, calculator port, `AnswerPolicy` fixture 확정 |
 | A5 | 한 질문 fake 수직 연결 | fake HCX·retriever·calculator로 완료·부분·불가·실패 시나리오 통과 |
 | A6 | HCX 최소 연동 | 계획·답변 구조화 출력 schema와 timeout 연동 테스트 통과 |

@@ -3,7 +3,7 @@ package com.foliolens.backend.evaluation.response;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -38,7 +38,7 @@ class EvaluationAnswerResponseTest {
                 "000660",
                 "exchange",
                 "신규시설투자등",
-                OffsetDateTime.parse("2024-04-24T09:00:00+09:00"),
+                LocalDate.parse("2024-04-24"),
                 "2. 투자내역 > 투자금액",
                 "투자금액은 ...입니다.",
                 1.0);

@@ -657,7 +657,7 @@ POST /api/v1/questions/{runId}/clarifications
     "companyName": "A사",
     "stockCode": "000000",
     "reportName": "신규시설투자등",
-    "submittedAt": "2025-01-01T10:00:00+09:00",
+    "submittedAt": "2025-01-01",
     "correction": false
   },
   "location": {
