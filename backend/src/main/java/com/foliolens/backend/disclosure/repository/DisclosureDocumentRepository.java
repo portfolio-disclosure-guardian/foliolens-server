@@ -1,6 +1,7 @@
 package com.foliolens.backend.disclosure.repository;
 
 import com.foliolens.backend.disclosure.domain.DisclosureDocument;
+import com.foliolens.backend.disclosure.domain.DisclosureDocumentChunkStatus;
 import com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat;
 import com.foliolens.backend.disclosure.domain.DisclosureDocumentParseStatus;
 import org.springframework.data.domain.Pageable;
@@ -85,9 +86,30 @@ public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDo
     );
 
     /**
+     * 파싱은 완료됐지만 아직 청킹하지 않은 특정 콘텐츠 형식의 문서를
+     * 제한된 수만큼 조회한다.
+     *
+     * 처리 결과가 PENDING에서 COMPLETED 또는 FAILED로 바뀌므로
+     * 청킹 배치는 항상 첫 페이지를 조회해 다음 대상을 선택한다.
+     */
+    @EntityGraph(attributePaths = "disclosure")
+    Slice<DisclosureDocument>
+    findAllByContentFormatAndParseStatusAndChunkStatusOrderByIdAsc(
+            DisclosureDocumentContentFormat contentFormat,
+            DisclosureDocumentParseStatus parseStatus,
+            DisclosureDocumentChunkStatus chunkStatus,
+            Pageable pageable
+    );
+
+    /**
      * 파싱 상태별 파일 수 조회
      */
     long countByParseStatus(DisclosureDocumentParseStatus parseStatus);
+
+    /**
+     * 청킹 상태별 원문 문서 수를 조회한다.
+     */
+    long countByChunkStatus(DisclosureDocumentChunkStatus chunkStatus);
 
     /**
      * 파일 확장자별 개수 조회

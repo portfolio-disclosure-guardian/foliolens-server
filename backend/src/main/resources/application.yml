@@ -79,3 +79,10 @@ foliolens:
         chunk-size: ${FOLIOLENS_PERSIST_XML_PARSING_LIMIT:50}
         max-documents: ${FOLIOLENS_PERSIST_XML_PARSING_MAX_DOCUMENTS:500}
         max-failures: ${FOLIOLENS_PERSIST_XML_PARSING_MAX_FAILURES:10}
+
+  chunking:
+    batch:
+      enabled: ${FOLIOLENS_CHUNKING_ON_STARTUP:false}
+      batch-size: ${FOLIOLENS_CHUNKING_BATCH_SIZE:10}
+      max-documents: ${FOLIOLENS_CHUNKING_MAX_DOCUMENTS:50}
+      max-failures: ${FOLIOLENS_CHUNKING_MAX_FAILURES:5}
