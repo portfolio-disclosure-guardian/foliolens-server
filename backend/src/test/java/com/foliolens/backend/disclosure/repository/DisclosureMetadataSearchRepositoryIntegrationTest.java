@@ -140,9 +140,62 @@ class DisclosureMetadataSearchRepositoryIntegrationTest {
     }
 
     @Test
+    void usesTitleOnlyForRankingWhenStructuredTypeFilterExists() {
+        DisclosureMetadataSearchCondition condition = condition(
+                Set.of(COMPANY_ID),
+                null,
+                null,
+                null,
+                CorrectionFilter.ALL,
+                List.of("CAPEX"),
+                10
+        );
+
+        DisclosureMetadataSearchResult result =
+                searchService.search(condition);
+
+        assertThat(result.candidateCount()).isEqualTo(2);
+        assertThat(result.items())
+                .extracting(item -> item.disclosureId())
+                .containsExactly(CORRECTION_ID, ORIGINAL_ID);
+        assertThat(result.items())
+                .allSatisfy(hit -> {
+                    assertThat(hit.searchScore()).isZero();
+                    assertThat(hit.matchedTerms()).isEmpty();
+                });
+    }
+
+    @Test
+    void usesTitleAsFilterWhenStructuredTypeFiltersAreMissing() {
+        DisclosureMetadataSearchCondition condition =
+                new DisclosureMetadataSearchCondition(
+                        Set.of(),
+                        null,
+                        null,
+                        null,
+                        Set.of(),
+                        Set.of(),
+                        Set.of(),
+                        List.of("공급계약"),
+                        CorrectionFilter.ALL,
+                        10
+                );
+
+        DisclosureMetadataSearchResult result =
+                searchService.search(condition);
+
+        assertThat(result.candidateCount()).isEqualTo(1);
+        assertThat(result.items()).singleElement().satisfies(hit -> {
+            assertThat(hit.disclosureId()).isEqualTo(OTHER_ID);
+            assertThat(hit.matchedTerms()).containsExactly("공급계약");
+            assertThat(hit.searchScore()).isEqualTo(1.0);
+        });
+    }
+
+    @Test
     void returnsEmptyResultInsteadOfThrowingWhenNoDisclosureMatches() {
         DisclosureMetadataSearchCondition condition = condition(
-                Set.of(OTHER_COMPANY_ID),
+                Set.of(new UUID(999, 999)),
                 null,
                 null,
                 null,

@@ -104,6 +104,16 @@ DisclosureChunkSearchCondition
 
 기본값을 `LATEST_ONLY`로 두지 않는다. 최신 유효 상태는 별도의 정정·후속 관계 해결 단계가 결정한다.
 
+보고서명 검색어는 구조화 유형 필터의 존재 여부에 따라 다르게 사용한다.
+
+- `sourceGroups`, `categories`, `rawSubtypes` 중 하나 이상이 지정되면
+  `titleTerms`는 후보를 제외하지 않고 검색 점수 계산에만 사용한다.
+- 세 구조화 유형 필터가 모두 비어 있으면 `titleTerms` 중 하나 이상이
+  보고서명에 포함된 공시만 후보로 남긴다.
+
+이 규칙은 승인된 공시 유형으로 후보가 이미 제한된 상황에서 `CAPEX`,
+`증설` 등의 표현 차이 때문에 관련 공시가 누락되는 것을 방지한다.
+
 ### 4.2 `DisclosureMetadataSearchHit`
 
 | 필드 | 타입 | 필수 | 출처 |
