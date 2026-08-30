@@ -4,7 +4,7 @@ import com.foliolens.backend.company.domain.Company;
 import com.foliolens.backend.company.domain.SourceProvider;
 import com.foliolens.backend.disclosure.domain.converter.DisclosureFileFormatConverter;
 import com.foliolens.backend.disclosure.domain.converter.DisclosureSourceGroupConverter;
-import com.foliolens.backend.global.basetime.BaseTimeEntity;
+import com.foliolens.backend.domain.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;

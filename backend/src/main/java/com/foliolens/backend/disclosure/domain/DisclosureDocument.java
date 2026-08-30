@@ -1,6 +1,6 @@
 package com.foliolens.backend.disclosure.domain;
 
-import com.foliolens.backend.global.basetime.BaseTimeEntity;
+import com.foliolens.backend.domain.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

@@ -7,7 +7,7 @@ import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import com.foliolens.backend.global.basetime.BaseCreatedEntity;
+import com.foliolens.backend.domain.BaseCreatedEntity;
 import com.foliolens.backend.global.exception.ErrorCode;
 import com.foliolens.backend.question.RequestChannel;
 

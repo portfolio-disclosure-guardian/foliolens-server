@@ -1,6 +1,6 @@
 package com.foliolens.backend.disclosure.domain;
 
-import com.foliolens.backend.global.basetime.BaseTimeEntity;
+import com.foliolens.backend.domain.BaseTimeEntity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

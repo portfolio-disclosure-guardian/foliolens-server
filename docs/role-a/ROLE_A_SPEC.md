@@ -311,7 +311,7 @@ DisclosureCalculator.calculate(CalculationCommand, List<RetrievedFact>) -> Calcu
 | A1 | 테스트 기준선 복구 | PostgreSQL 테스트 환경에서 `contextLoads` 통과, 평가 MVC 테스트는 DB 없이 실행 |
 | A2 | 평가 mapper 완성(DONE) | 비어 있지 않은 `retrieved_context`, 구조화 `think_trace`, 접수일 형식, snake_case와 5개 키 계약 테스트 통과 |
 | A3 | 계획 계약·검증기(DONE) | 후보/검증 DTO 분리, 구조화 input, 기업·기간·의존성·상한과 시설투자 profile 테스트 통과 |
-| A4 | A-B-C fixture 경계 | `RetrievalResult`, document/evidence/fact/calculation DTO, calculator port, `AnswerPolicy` fixture 확정 |
+| A4 | A-B-C fixture 경계(DONE) | `RetrievalResult`, document/evidence/fact/calculation DTO, calculator port, `AnswerPolicy` fixture 확정 |
 | A5 | 한 질문 fake 수직 연결 | fake HCX·retriever·calculator로 완료·부분·불가·실패 시나리오 통과 |
 | A6 | HCX 최소 연동 | 계획·답변 구조화 출력 schema와 timeout 연동 테스트 통과 |
 | A7 | 검증·신뢰성·추적 | 참조 무결성, 금지 표현, deadline, retry, 세 ID·처리시간·버전·오류 코드, run 전이와 redaction 테스트 통과 |

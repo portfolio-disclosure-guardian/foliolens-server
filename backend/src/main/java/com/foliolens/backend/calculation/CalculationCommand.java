@@ -1,4 +1,6 @@
 package com.foliolens.backend.calculation;
 
-public record CalculationCommand(String externalQuestionId, String question, String answer) {
+import com.foliolens.backend.question.plan.toolinput.CalculationOperation;
+
+public record CalculationCommand(CalculationOperation operation, ComparisonBasis comparisonBasis) {
 }

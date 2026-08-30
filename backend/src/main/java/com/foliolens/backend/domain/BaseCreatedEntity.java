@@ -1,4 +1,4 @@
-package com.foliolens.backend.global.basetime;
+package com.foliolens.backend.domain;
 
 import java.time.Instant;
 
