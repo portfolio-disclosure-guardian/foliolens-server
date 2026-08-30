@@ -1,5 +1,6 @@
 package com.foliolens.backend.calculation;
 
+// GOLD-FACILITY-001 5.6절: 계산 판정. 답변 상태(AnswerOutcome)와는 별개 축이다.
 public enum CalculationVerdict {
     MATCH, // 반올림한 재계산값과 공시값이 같음
     MISMATCH, // 반올림 후에도 공시값과 다름

@@ -2,16 +2,25 @@ package com.foliolens.backend.policy;
 
 import com.foliolens.backend.answer.AnswerOutcome;
 import com.foliolens.backend.calculation.CalculationVerdict;
+import com.foliolens.backend.question.plan.confirmation.DateRange;
+import com.foliolens.backend.question.plan.confirmation.PlanTime;
+import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
+import com.foliolens.backend.question.plan.confirmation.ResolvedCompanyRef;
 import com.foliolens.backend.question.plan.toolinput.CalculationOperation;
 
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 // GOLD-FACILITY-001_C_APPROVAL_STEPS_1_TO_7.md의 1~7단계 승인 내용을 옮긴 fixture.
 // policyVersion이 "1.0-draft"인 동안은 8단계 최종 패키지(C_APPROVED) 확정 전이므로
-// 이 값을 실제 답변 판정에 그대로 사용하지 않는다 — 오케스트레이션·계약 테스트용 fixture로만 쓴다.
+// GOLD-FACILITY-001 A5 고정 경로와 계약 테스트에서만 사용한다.
 public final class GoldFacility001Fixture {
+
+    private static final long QUESTION_PLAN_SCHEMA_VERSION = 1L;
 
     private GoldFacility001Fixture() {
     }
@@ -90,5 +99,22 @@ public final class GoldFacility001Fixture {
                                 + "있습니다."
                 )
         );
+    }
+
+    public static QuestionPlan questionPlan() {
+        GoldenCase goldenCase = policy().goldenCase();
+        LocalDate decisionDate = LocalDate.parse(
+                goldenCase.expectedNormalizedFacts().get("facility.decision_date"));
+        DateRange decisionMonth = new DateRange(
+                decisionDate.withDayOfMonth(1),
+                decisionDate.withDayOfMonth(decisionDate.lengthOfMonth()));
+        UUID companyId = UUID.nameUUIDFromBytes(goldenCase.companyName().getBytes(StandardCharsets.UTF_8));
+
+        return new QuestionPlan(
+                QUESTION_PLAN_SCHEMA_VERSION,
+                List.of(new ResolvedCompanyRef(companyId, goldenCase.companyName())),
+                new PlanTime(decisionMonth, decisionMonth, decisionDate),
+                List.of(),
+                List.of());
     }
 }
