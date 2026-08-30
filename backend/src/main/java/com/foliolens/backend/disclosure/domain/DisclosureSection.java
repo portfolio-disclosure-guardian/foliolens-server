@@ -1,6 +1,6 @@
 package com.foliolens.backend.disclosure.domain;
 
-import com.foliolens.backend.domain.BaseTimeEntity;
+import com.foliolens.backend.global.basetime.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

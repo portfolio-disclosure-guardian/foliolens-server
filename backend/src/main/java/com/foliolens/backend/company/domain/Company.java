@@ -1,6 +1,6 @@
 package com.foliolens.backend.company.domain;
 
-import com.foliolens.backend.domain.BaseTimeEntity;
+import com.foliolens.backend.global.basetime.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,7 +20,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
