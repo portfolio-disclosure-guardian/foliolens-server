@@ -7,5 +7,5 @@ import java.util.List;
 public record SearchDisclosuresInput(List<DisclosureCategory> categories,
                                      List<String> subtypes,
                                      List<String> titleTerms,
-                                     int limit) implements ToolInput{
+                                     int limit) implements ToolInput {
 }

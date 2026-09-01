@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+import com.foliolens.backend.answer.AnswerOutcome;
 import com.foliolens.backend.answer.AnswerResult;
 import com.foliolens.backend.answer.ExecutionStep;
 import com.foliolens.backend.answer.ThinkTraceEntry;
@@ -46,6 +47,9 @@ class EvaluationAnswerResponseTest {
                 UUID.randomUUID(),
                 "q-001",
                 "SK하이닉스의 신규시설투자 금액은?",
+                AnswerOutcome.COMPLETED,
+                List.of(),
+                List.of(),
                 List.of(evidence),
                 List.of(new ThinkTraceEntry(ExecutionStep.RETRIEVAL, "관련 공시를 검색했습니다.")),
                 "투자금액은 ...입니다.");
@@ -74,6 +78,9 @@ class EvaluationAnswerResponseTest {
                 UUID.randomUUID(),
                 "q-002",
                 "A사의 현재 주가는?",
+                AnswerOutcome.UNANSWERABLE,
+                List.of(),
+                List.of(),
                 List.of(),
                 List.of(new ThinkTraceEntry(ExecutionStep.RETRIEVAL, "제공 공시 범위에 현재 주가 자료가 없었습니다.")),
                 "현재 주가는 제공된 공시 범위에서 확인할 수 없습니다.");

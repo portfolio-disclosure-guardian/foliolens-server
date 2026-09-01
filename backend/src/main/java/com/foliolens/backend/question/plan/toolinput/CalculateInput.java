@@ -4,5 +4,5 @@ import java.util.List;
 
 public record CalculateInput(String factsFrom,
                              CalculationOperation operation,
-                             List<String> inputBindings) implements ToolInput{
+                             List<String> inputBindings) implements ToolInput {
 }
