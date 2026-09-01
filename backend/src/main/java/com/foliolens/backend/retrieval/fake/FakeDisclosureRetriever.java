@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 import com.foliolens.backend.disclosure.domain.DisclosureDocumentRole;
 import com.foliolens.backend.disclosure.domain.fact.EvidenceBlockType;
@@ -26,6 +27,7 @@ import com.foliolens.backend.retrieval.RetrievedFact;
 // A5 fake 수직 연결: GOLD-FACILITY-001 fixture 데이터를 QuestionPlan 내용과 무관하게 고정 반환한다.
 // 실제 검색은 하지 않으며, 어떤 fact를 뺄지만 골라 완료/부분/답변불가 시나리오를 만든다.
 @Component
+@Profile("fake-retrieval")
 public final class FakeDisclosureRetriever implements DisclosureRetriever {
 
     private static final Map<String, FactValueType> VALUE_TYPES = Map.of(

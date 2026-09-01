@@ -17,6 +17,7 @@ import com.foliolens.backend.question.plan.toolinput.CalculateInput;
 import com.foliolens.backend.question.plan.toolinput.CalculationOperation;
 import com.foliolens.backend.question.plan.toolinput.LookupFactsInput;
 import com.foliolens.backend.question.plan.toolinput.SearchDisclosuresInput;
+import com.foliolens.backend.question.plan.toolinput.SearchEvidenceInput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
@@ -318,6 +319,58 @@ class QuestionPlanConverterTest {
         );
 
         assertQuestion4007(candidateWithSteps(List.of(searchStep, calculateStep)));
+    }
+
+    @Test
+    void SEARCH_EVIDENCE가_공시검색_step을_참조하는_입력으로_변환된다() {
+        PlanStepCandidate searchStep = searchDisclosuresStep("s1", 10);
+        PlanStepCandidate evidenceStep = new PlanStepCandidate(
+                "s2",
+                ToolType.SEARCH_EVIDENCE,
+                objectMapper.valueToTree(Map.of(
+                        "disclosureIdsFrom", "s1",
+                        "concepts", List.of("FACILITY_INVESTMENT"),
+                        "factKeys", List.of("facility.amount"),
+                        "sectionHints", List.of("투자내역"),
+                        "keywords", List.of("투자금액"),
+                        "blockTypes", List.of("paragraph", "table_row"),
+                        "topK", 5
+                )),
+                List.of("s1")
+        );
+
+        QuestionPlan plan = converter.candidateToConfirmation(
+                candidateWithSteps(List.of(searchStep, evidenceStep))
+        );
+
+        assertThat(plan.steps().get(1).input()).isEqualTo(
+                new SearchEvidenceInput(
+                        "s1",
+                        List.of("FACILITY_INVESTMENT"),
+                        List.of("facility.amount"),
+                        List.of("투자내역"),
+                        List.of("투자금액"),
+                        List.of("PARAGRAPH", "TABLE_ROW"),
+                        5
+                )
+        );
+    }
+
+    @Test
+    void SEARCH_EVIDENCE의_from값이_dependsOn에_없으면_QUESTION_400_7_예외를_던진다() {
+        PlanStepCandidate searchStep = searchDisclosuresStep("s1", 10);
+        PlanStepCandidate evidenceStep = new PlanStepCandidate(
+                "s2",
+                ToolType.SEARCH_EVIDENCE,
+                objectMapper.valueToTree(Map.of(
+                        "disclosureIdsFrom", "s1",
+                        "factKeys", List.of("facility.amount"),
+                        "topK", 5
+                )),
+                List.of()
+        );
+
+        assertQuestion4007(candidateWithSteps(List.of(searchStep, evidenceStep)));
     }
 
     private void assertQuestion4007(QuestionPlanCandidate candidate) {

@@ -103,6 +103,13 @@ public class QuestionPlanConverter {
         for (PlanStep step : steps) {
             if (step.input() instanceof LookupFactsInput lookupFactsInput) {
                 validateFromBinding(step, lookupFactsInput.disclosureIdsFrom(), ToolType.SEARCH_DISCLOSURES, stepsById);
+            } else if (step.input() instanceof SearchEvidenceInput searchEvidenceInput) {
+                validateFromBinding(
+                        step,
+                        searchEvidenceInput.disclosureIdsFrom(),
+                        ToolType.SEARCH_DISCLOSURES,
+                        stepsById
+                );
             } else if (step.input() instanceof CalculateInput calculateInput) {
                 validateFromBinding(step, calculateInput.factsFrom(), ToolType.LOOKUP_FACTS, stepsById);
             }
