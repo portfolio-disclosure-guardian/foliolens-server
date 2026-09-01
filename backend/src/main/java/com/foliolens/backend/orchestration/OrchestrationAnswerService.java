@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import com.foliolens.backend.answer.AnswerClaim;
 import com.foliolens.backend.answer.AnswerOutcome;
 import com.foliolens.backend.answer.AnswerOutcomeJudge;
+import com.foliolens.backend.answer.AnswerReferenceValidator;
 import com.foliolens.backend.answer.AnswerResult;
 import com.foliolens.backend.answer.ExecutionStep;
 import com.foliolens.backend.answer.HcxAnswerGenerator;
@@ -16,6 +17,8 @@ import com.foliolens.backend.calculation.ComparisonBasis;
 import com.foliolens.backend.calculation.DisclosureCalculator;
 import com.foliolens.backend.policy.AnswerPolicy;
 import com.foliolens.backend.policy.GoldFacility001Fixture;
+import com.foliolens.backend.global.exception.BusinessException;
+import com.foliolens.backend.global.exception.ErrorCode;
 import com.foliolens.backend.question.AnswerQuestionCommand;
 import com.foliolens.backend.question.entity.QuestionRun;
 import com.foliolens.backend.question.service.QuestionRunService;
@@ -33,10 +36,34 @@ public class OrchestrationAnswerService {
     private final DisclosureRetriever disclosureRetriever;
     private final DisclosureCalculator disclosureCalculator;
     private final AnswerOutcomeJudge answerOutcomeJudge;
+    private final AnswerReferenceValidator answerReferenceValidator;
     private final HcxAnswerGenerator hcxAnswerGenerator;
 
     public AnswerResult getAnswer(AnswerQuestionCommand command) {
-        QuestionRun run = questionRunService.createQuestionRun(command.externalQuestionId(), command.question());
+        QuestionRun run = questionRunService.createQuestionRun(
+                command.requestId(),
+                command.externalQuestionId(),
+                command.question(),
+                command.channel());
+        questionRunService.startQuestionRun(run);
+        try {
+            AnswerResult result = generateAnswer(command, run);
+            questionRunService.completeQuestionRun(run, result.renderedAnswer());
+            return result;
+        } catch (RuntimeException exception) {
+            ErrorCode errorCode = exception instanceof BusinessException businessException
+                    ? businessException.getErrorCode()
+                    : ErrorCode.COMMON_500_1;
+            try {
+                questionRunService.failQuestionRun(run, errorCode);
+            } catch (RuntimeException persistenceFailure) {
+                exception.addSuppressed(persistenceFailure);
+            }
+            throw exception;
+        }
+    }
+
+    private AnswerResult generateAnswer(AnswerQuestionCommand command, QuestionRun run) {
         AnswerPolicy policy = GoldFacility001Fixture.policy();
         if (!policy.goldenCase().goldenCaseId().equals(command.externalQuestionId())) {
             return placeholder(run);
@@ -51,6 +78,7 @@ public class OrchestrationAnswerService {
                 retrieval.missingFactKeys(),
                 calculation.verdict());
         List<AnswerClaim> claims = answerOutcomeJudge.buildClaims(retrieval, calculation);
+        var usedDocuments = answerReferenceValidator.validate(retrieval, List.of(calculation), claims);
         String renderedAnswer = hcxAnswerGenerator.generateAnswer(
                 command.question(),
                 policy,
@@ -65,7 +93,7 @@ public class OrchestrationAnswerService {
                 outcome,
                 claims,
                 List.of(calculation),
-                retrieval.documents(),
+                usedDocuments,
                 List.of(
                         new ThinkTraceEntry(ExecutionStep.PLANNING, "GOLD-FACILITY-001 고정 계획을 사용했습니다."),
                         new ThinkTraceEntry(ExecutionStep.RETRIEVAL, "고정 공시 fixture에서 근거와 fact를 조회했습니다."),

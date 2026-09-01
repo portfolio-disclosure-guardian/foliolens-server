@@ -77,7 +77,7 @@ public final class FakeDisclosureRetriever implements DisclosureRetriever {
                 "2. 투자내역", "투자내역 원문", 1.0);
 
         RetrievedEvidence evidence = new RetrievedEvidence(
-                "EVD-1", goldenCase.receiptNo(), "DOC-1", DisclosureDocumentRole.MAIN,
+                "EVD-1", goldenCase.receiptNo(), document.documentId(), DisclosureDocumentRole.MAIN,
                 "2", EvidenceBlockType.PARAGRAPH, "투자내역 원문", 1.0, EvidenceStatus.VERIFIED);
 
         List<RetrievedFact> facts = new ArrayList<>();

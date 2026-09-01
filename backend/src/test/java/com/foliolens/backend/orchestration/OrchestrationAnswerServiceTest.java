@@ -2,8 +2,11 @@ package com.foliolens.backend.orchestration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -25,6 +28,8 @@ import com.foliolens.backend.answer.HcxAnswerGenerator;
 import com.foliolens.backend.calculation.CalculationVerdict;
 import com.foliolens.backend.calculation.fake.FakeDisclosureCalculator;
 import com.foliolens.backend.evaluation.controller.EvaluationAnswerController;
+import com.foliolens.backend.global.exception.BusinessException;
+import com.foliolens.backend.global.exception.ErrorCode;
 import com.foliolens.backend.policy.GoldFacility001Fixture;
 import com.foliolens.backend.policy.GoldenCase;
 import com.foliolens.backend.question.AnswerQuestionCommand;
@@ -37,19 +42,25 @@ class OrchestrationAnswerServiceTest {
 
     private final GoldenCase goldenCase = GoldFacility001Fixture.policy().goldenCase();
     private final UUID runId = UUID.randomUUID();
+    private final String requestId = "request-001";
 
     private QuestionRunService questionRunService;
     private HcxAnswerGenerator hcxAnswerGenerator;
     private OrchestrationAnswerService service;
+    private QuestionRun run;
 
     @BeforeEach
     void setUp() {
         questionRunService = mock(QuestionRunService.class);
-        QuestionRun run = mock(QuestionRun.class);
+        run = mock(QuestionRun.class);
         when(run.getId()).thenReturn(runId);
         when(run.getExternalQuestionId()).thenReturn(goldenCase.goldenCaseId());
         when(run.getQuestionText()).thenReturn(goldenCase.question());
-        when(questionRunService.createQuestionRun(goldenCase.goldenCaseId(), goldenCase.question()))
+        when(questionRunService.createQuestionRun(
+                anyString(),
+                eq(goldenCase.goldenCaseId()),
+                eq(goldenCase.question()),
+                eq(RequestChannel.EVALUATION)))
                 .thenReturn(run);
         hcxAnswerGenerator = mock(HcxAnswerGenerator.class);
         when(hcxAnswerGenerator.generateAnswer(
@@ -61,6 +72,7 @@ class OrchestrationAnswerServiceTest {
                 FakeDisclosureRetriever.complete(),
                 new FakeDisclosureCalculator(),
                 new AnswerOutcomeJudge(),
+                new com.foliolens.backend.answer.AnswerReferenceValidator(),
                 hcxAnswerGenerator);
     }
 
@@ -79,6 +91,18 @@ class OrchestrationAnswerServiceTest {
         assertEquals(goldenCase.expectedAnswer(), result.renderedAnswer());
         verify(hcxAnswerGenerator).generateAnswer(
                 eq(goldenCase.question()), any(), any(), any(), eq(AnswerOutcome.COMPLETED));
+        verify(questionRunService).startQuestionRun(run);
+        verify(questionRunService).completeQuestionRun(run, goldenCase.expectedAnswer());
+    }
+
+    @Test
+    void 답변_생성_실패는_run을_FAILED로_기록한다() {
+        BusinessException failure = new BusinessException(ErrorCode.AGENT_502_1);
+        doThrow(failure).when(hcxAnswerGenerator).generateAnswer(
+                eq(goldenCase.question()), any(), any(), any(), eq(AnswerOutcome.COMPLETED));
+
+        assertEquals(failure, assertThrows(BusinessException.class, () -> service.getAnswer(command())));
+        verify(questionRunService).failQuestionRun(run, ErrorCode.AGENT_502_1);
     }
 
     @Test
@@ -102,6 +126,7 @@ class OrchestrationAnswerServiceTest {
         return new AnswerQuestionCommand(
                 goldenCase.goldenCaseId(),
                 goldenCase.question(),
-                RequestChannel.EVALUATION);
+                RequestChannel.EVALUATION,
+                requestId);
     }
 }

@@ -1,5 +1,6 @@
 package com.foliolens.backend.answer;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.foliolens.backend.calculation.CalculationResult;
@@ -7,6 +8,7 @@ import com.foliolens.backend.policy.AnswerPolicy;
 import com.foliolens.backend.retrieval.RetrievalResult;
 
 @Component
+@ConditionalOnProperty(name = "hcx.api.enabled", havingValue = "false", matchIfMissing = true)
 public final class FakeHcxAnswerGenerator implements HcxAnswerGenerator {
 
     @Override

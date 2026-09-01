@@ -95,9 +95,14 @@ foliolens:
         limit-max: ${FOLIOLENS_PLAN_SEARCH_DISCLOSURES_LIMIT_MAX:50}
 hcx:
   api:
-    base-url: ${HCX_API_BASE_URL:https://api.hcx.com}
-    client-id: ${HCX_API_CLIENT_ID:change-this-client-id}
-    client-secret: ${HCX_API_CLIENT_SECRET:change-this-client-secret}
-    token:
-    url: ${HCX_API_TOKEN_URL:https://api.hcx.com/oauth/token}
-    grant-type: client_credentials No newline at end of file
+    enabled: ${HCX_API_ENABLED:false}          # false면 Fake 유지
+    base-url: ${HCX_API_BASE_URL:https://clovastudio.stream.ntruss.com}
+    api-key: ${HCX_API_KEY:}
+    model: ${HCX_MODEL:HCX-005}
+    # 테스트 키는 testapp, 대회 제출용 서비스 키로 교체하면 serviceapp으로 바꾼다.
+    app-type: ${HCX_APP_TYPE:testapp}
+    connect-timeout-ms: ${HCX_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${HCX_READ_TIMEOUT_MS:30000}
+    max-tokens: ${HCX_MAX_TOKENS:1024}
+    temperature: ${HCX_TEMPERATURE:0.5}
+    top-p: ${HCX_TOP_P:0.8}
