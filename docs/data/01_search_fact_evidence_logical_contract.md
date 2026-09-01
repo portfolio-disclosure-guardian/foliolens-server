@@ -164,7 +164,7 @@ DisclosureChunkSearchCondition
 | `keywords` | `List<String>` | 조건부 | 본문·표 검색어 | 최소 한 개 검색 신호 필요 |
 | `chunkTypes` | `Set<DisclosureChunkType>` | 조건부 | `TEXT`, `TABLE` | 비어 있으면 둘 다 허용 |
 | `topK` | `int` | 필수 | 반환할 검색 적중 수 | 초기 1~20 |
-| `neighborRadius` | `int` | 필수 | 같은 Section의 앞뒤 청크 확장 범위 | 초기 0~2 |
+| `neighborRadius` | `int` | 필수 | 같은 Section의 앞뒤 청크 확장 범위 | 모델은 0~2, `chunk-search-v1` 실행은 0만 지원 |
 
 다음 중 하나 이상은 반드시 있어야 한다.
 
@@ -252,6 +252,20 @@ DisclosureChunkSearchCondition
 | `truncated` | topK 때문에 후보가 제외됐는지 여부 |
 | `warnings` | 파싱 미완료·청킹 미완료·검색어 미매핑 등 |
 | `retrievalVersion` | 검색 정책·쿼리 버전 |
+
+### 5.6 `chunk-search-v1` 구현 기준
+
+- 검색어 해석기는 첫 수직 범위인 시설투자의 핵심 `facility.*` Fact를
+  금융 도메인 문서의 원문 레이블과 Section 힌트로 변환한다.
+- 미지원 concept·factKey는 추측해 변환하지 않고 검색 경고로 반환한다.
+- 평가는 `sourceProvider=CONTEST`, `chunk_status=COMPLETED`, 요청한
+  `disclosureIds/documentIds`, `TEXT/TABLE` 범위에서만 수행한다.
+- 후보는 `search_text`와 `section_path`의 문자열 일치로 제한하고,
+  공시명·Section·본문·연속 구문·Fact 레이블 점수를 합산해 정렬한다.
+- 상위 청크의 `disclosure_chunk_sources`는 일괄 조회하여 원본 Block,
+  XML 행과 TABLE 행 범위를 함께 반환한다.
+- `neighborRadius`를 조용히 무시하지 않는다. 이웃 문맥 출력 모델이 없는
+  `chunk-search-v1`은 0만 허용하며, 1~2는 후속 버전에서 구현한다.
 
 ## 6. 검색 결과 불변조건
 
