@@ -18,8 +18,28 @@ import java.util.Objects;
 import java.util.StringJoiner;
 
 /**
- * PostgreSQL의 disclosures·companies·disclosure_documents를 조회하는
- * 메타데이터 검색 Repository.
+ * PostgreSQL의 disclosures·companies·disclosure_documents를 조회하는 메타데이터 검색 Repository.
+ *
+ * 예:
+ * 사용자가 다음 조건을 전달
+ * 회사: 삼성전자
+ * 기간: 2025년
+ * 공시 종류: 주요사항보고서
+ * 세부 유형: 신규시설투자등
+ * 제목 검색어: 시설투자
+ * 정정공시: 모두 포함
+ * 최대 결과: 20개
+ *
+ * Repository는 DB에서 다음 작업을 함
+ * 1. 삼성전자 공시만 남긴다.
+ * 2. 2025년 공시만 남긴다.
+ * 3. 주요사항보고서만 남긴다.
+ * 4. 시설투자 유형만 남긴다.
+ * 5. 보고서명에 시설투자가 들어간 공시를 찾는다.
+ * 6. 제목이 더 잘 맞는 순서로 정렬한다.
+ * 7. 상위 20개를 반환한다.
+ *
+ * 공시 목록에서 조사 대상을 고르는 클래스
  */
 @Repository
 public class JdbcDisclosureMetadataSearchRepository
@@ -27,6 +47,11 @@ public class JdbcDisclosureMetadataSearchRepository
 
     private static final String CONTEST_PROVIDER = "CONTEST";
 
+    // NamedParameterJdbcTemplate은 Java에서 PostgreSQL에 SQL을 실행하게 해주는 도구
+    /*
+    * 사용하지 않는 위험한 방식 -> "WHERE company_id = '" + companyId + "'"
+    * 대신 이름이 있는 파라미터를 사용  -> WHERE d.company_id IN (:companyIds)
+    * */
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public JdbcDisclosureMetadataSearchRepository(
@@ -38,13 +63,30 @@ public class JdbcDisclosureMetadataSearchRepository
         );
     }
 
+    /**
+     * 실행 흐름:
+     * 검색 조건 확인
+     *     ↓
+     * SQL WHERE 조건 생성
+     *     ↓
+     * 전체 후보 개수 조회
+     *     ↓
+     * 후보가 0이면 빈 결과 반환
+     *     ↓
+     * 후보 목록·점수·문서 수 조회
+     *     ↓
+     * DisclosureMetadataSearchHit으로 변환
+     */
     @Override
     public SearchResult search(
             DisclosureMetadataSearchCondition condition
     ) {
         Objects.requireNonNull(condition, "condition은 필수입니다.");
 
+        // 검색 SQL 준비 -> 검색 조건을 보고 SQL의 WHERE 부분을 만듦
         SearchQuery query = buildSearchQuery(condition);
+
+        // 전체 후보 수 조회 -> 먼저 조건에 맞는 공시가 총 몇 개인지 조회
         Integer candidateCount = jdbcTemplate.queryForObject(
                 countSql(query.whereClause()),
                 query.parameters(),
@@ -56,6 +98,7 @@ public class JdbcDisclosureMetadataSearchRepository
             return new SearchResult(List.of(), 0);
         }
 
+        // 실제 검색 결과 조회 -> 두 번째 SQL에서 실제 공시 정보를 가져옴
         List<DisclosureMetadataSearchHit> items = jdbcTemplate.query(
                 selectSql(
                         query.whereClause(),
@@ -68,6 +111,10 @@ public class JdbcDisclosureMetadataSearchRepository
         return new SearchResult(items, totalCount);
     }
 
+    /**
+     * 검색 조건을 SQL로 바꾸는 핵심 메서드
+     * 기업 조건, 시작일, 종료일, 공시 그룹, 카테고리, 세부유형, 정정여부,
+     */
     private SearchQuery buildSearchQuery(
             DisclosureMetadataSearchCondition condition
     ) {
@@ -81,11 +128,13 @@ public class JdbcDisclosureMetadataSearchRepository
         predicates.add("d.source_provider = :sourceProvider");
         parameters.addValue("sourceProvider", CONTEST_PROVIDER);
 
+        // 기업조건
         if (!condition.companyIds().isEmpty()) {
             predicates.add("d.company_id IN (:companyIds)");
             parameters.addValue("companyIds", condition.companyIds());
         }
 
+        // 시작일
         if (condition.receiptDateFrom() != null) {
             predicates.add("d.receipt_date >= :receiptDateFrom");
             parameters.addValue(
@@ -94,12 +143,14 @@ public class JdbcDisclosureMetadataSearchRepository
             );
         }
 
+        // 종료일과 asOf
         LocalDate effectiveDateTo = condition.effectiveReceiptDateTo();
         if (effectiveDateTo != null) {
             predicates.add("d.receipt_date <= :receiptDateTo");
             parameters.addValue("receiptDateTo", effectiveDateTo);
         }
 
+        // 공시그룹
         if (!condition.sourceGroups().isEmpty()) {
             predicates.add("d.source_group IN (:sourceGroups)");
             parameters.addValue(
@@ -110,6 +161,7 @@ public class JdbcDisclosureMetadataSearchRepository
             );
         }
 
+        // 카테고리
         if (!condition.categories().isEmpty()) {
             predicates.add("d.category IN (:categories)");
             parameters.addValue(
@@ -120,17 +172,25 @@ public class JdbcDisclosureMetadataSearchRepository
             );
         }
 
+        // 세부유형
         if (!condition.rawSubtypes().isEmpty()) {
             predicates.add("d.raw_subtype IN (:rawSubtypes)");
             parameters.addValue("rawSubtypes", condition.rawSubtypes());
         }
 
+        boolean hasStructuredTypeFilter =
+                !condition.sourceGroups().isEmpty()
+                        || !condition.categories().isEmpty()
+                        || !condition.rawSubtypes().isEmpty();
+
         String scoreExpression = addTitleConditions(
                 condition.titleTerms(),
+                !hasStructuredTypeFilter,
                 predicates,
                 parameters
         );
 
+        // 정정여부
         switch (condition.correctionFilter()) {
             case ORIGINAL_ONLY -> predicates.add("d.correction = FALSE");
             case CORRECTION_ONLY -> predicates.add("d.correction = TRUE");
@@ -148,8 +208,13 @@ public class JdbcDisclosureMetadataSearchRepository
         );
     }
 
+    /**
+     * 1. 보고서명에 검색어가 포함돼 있는지 검사
+     * 2. 검색어가 얼마나 잘 일치했는지 점수 계산
+     */
     private String addTitleConditions(
             List<String> titleTerms,
+            boolean filterByTitle,
             StringJoiner predicates,
             MapSqlParameterSource parameters
     ) {
@@ -162,8 +227,7 @@ public class JdbcDisclosureMetadataSearchRepository
 
         for (int index = 0; index < titleTerms.size(); index++) {
             String parameterName = "titleTerm" + index;
-            String normalizedTerm = titleTerms.get(index)
-                    .toLowerCase(Locale.ROOT);
+            String normalizedTerm = titleTerms.get(index).toLowerCase(Locale.ROOT);
 
             parameters.addValue(parameterName, normalizedTerm);
             matches.add(
@@ -182,7 +246,10 @@ public class JdbcDisclosureMetadataSearchRepository
             );
         }
 
-        predicates.add("(" + String.join(" OR ", matches) + ")");
+        if (filterByTitle) {
+            predicates.add("(" + String.join(" OR ", matches) + ")");
+        }
+
         return "(" + String.join(" + ", scoreParts) + ")";
     }
 
