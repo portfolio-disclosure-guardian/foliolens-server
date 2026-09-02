@@ -9,5 +9,7 @@ public enum CalculationOperation {
     AVERAGE, //동일 기준 값 산술 평균
     DATE_DURATION, //종료일 - 시작일
     UNIT_CONVERSION, //표시 단위 변환
-    SHARE_DILUTION //정의된 주식 수 기준 잠재 희석률
+    SHARE_DILUTION, //정의된 주식 수 기준 잠재 희석률
+    PRODUCT, //동일 기준 값의 곱
+    AS_OF_SELECTION //기준시점에 유효한 값 선택
 }

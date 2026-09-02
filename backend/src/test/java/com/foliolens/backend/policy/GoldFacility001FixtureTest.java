@@ -16,7 +16,7 @@ class GoldFacility001FixtureTest {
 
         policy.facts().forEach(fact ->
                 assertTrue(
-                        policy.goldenCase().expectedNormalizedFacts().containsKey(fact.factKey()),
+                        policy.goldenCases().getFirst().expectedNormalizedFacts().containsKey(fact.factKey()),
                         fact.factKey() + "가 골든 케이스 기대값에 없습니다."
                 )
         );
@@ -26,7 +26,7 @@ class GoldFacility001FixtureTest {
     void roundingRawResultReproducesDisclosedRatio() {
         AnswerPolicy policy = GoldFacility001Fixture.policy();
         CalculationPolicy calculation = policy.calculation();
-        GoldenCase goldenCase = policy.goldenCase();
+        GoldenCase goldenCase = policy.goldenCases().getFirst();
 
         BigDecimal rounded = new BigDecimal(goldenCase.expectedRawResult())
                 .setScale(calculation.displayScale(), calculation.roundingMode());
@@ -47,7 +47,7 @@ class GoldFacility001FixtureTest {
     void rawResultMatchesAmountDividedByEquity() {
         AnswerPolicy policy = GoldFacility001Fixture.policy();
         CalculationPolicy calculation = policy.calculation();
-        GoldenCase goldenCase = policy.goldenCase();
+        GoldenCase goldenCase = policy.goldenCases().getFirst();
 
         BigDecimal amount = new BigDecimal(
                 goldenCase.expectedNormalizedFacts().get(calculation.numeratorFactKey())
