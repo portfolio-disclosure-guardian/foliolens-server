@@ -1,0 +1,47 @@
+package com.foliolens.backend.policy;
+
+import org.junit.jupiter.api.Test;
+
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class FinanceDomainAnswerPoliciesTest {
+
+    private static final Map<String, Integer> EXPECTED_FACT_COUNTS = Map.of(
+            "합병·분할·주식교환", 90,
+            "자산·영업·지분거래", 130,
+            "계속기업·법률위험", 73,
+            "해외증권시장 상장·상장폐지", 59,
+            "정정·후속공시 및 기준시점 상태", 37
+    );
+
+    private static final Map<String, Integer> EXPECTED_CALCULATION_COUNTS = Map.of(
+            "합병·분할·주식교환", 18,
+            "자산·영업·지분거래", 18,
+            "계속기업·법률위험", 5,
+            "해외증권시장 상장·상장폐지", 14,
+            "정정·후속공시 및 기준시점 상태", 5
+    );
+
+    @Test
+    void financeDomain08To12DraftsMatchDocumentedPolicyShape() {
+        var policies = FinanceDomainAnswerPolicies.all();
+
+        assertEquals(5, policies.size());
+        assertEquals(5, policies.stream().map(AnswerPolicy::disclosureSubtype).distinct().count());
+
+        policies.forEach(policy -> {
+            assertEquals(FinanceDomainAnswerPolicies.DRAFT_POLICY_VERSION, policy.policyVersion());
+            assertEquals(EXPECTED_FACT_COUNTS.get(policy.disclosureSubtype()), policy.facts().size());
+            assertEquals(EXPECTED_CALCULATION_COUNTS.get(policy.disclosureSubtype()), policy.calculations().size());
+            assertEquals(policy.facts().size(), policy.facts().stream().map(FactPolicy::factKey).distinct().count());
+            assertEquals(
+                    policy.calculations().size(),
+                    policy.calculations().stream().map(CalculationPolicy::calculationId).distinct().count());
+            assertTrue(policy.facts().stream().allMatch(fact -> fact.necessity() == FactNecessity.SUPPORTING));
+            assertTrue(policy.goldenCases().isEmpty());
+        });
+    }
+}

@@ -64,7 +64,7 @@ public final class FakeDisclosureRetriever implements DisclosureRetriever {
 
     @Override
     public RetrievalResult retrieve(QuestionPlan plan) {
-        GoldenCase goldenCase = GoldFacility001Fixture.policy().goldenCase();
+        GoldenCase goldenCase = GoldFacility001Fixture.policy().goldenCases().getFirst();
 
         if (!includeDocuments) {
             return new RetrievalResult(List.of(), List.of(), List.of(), List.of(), plan.steps(),

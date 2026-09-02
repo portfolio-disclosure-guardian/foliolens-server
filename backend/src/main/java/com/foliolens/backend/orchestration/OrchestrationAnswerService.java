@@ -38,6 +38,7 @@ public class OrchestrationAnswerService {
     private final AnswerOutcomeJudge answerOutcomeJudge;
     private final AnswerReferenceValidator answerReferenceValidator;
     private final HcxAnswerGenerator hcxAnswerGenerator;
+    private final List<AnswerPolicy> answerPolicies;
 
     public AnswerResult getAnswer(AnswerQuestionCommand command) {
         QuestionRun run = questionRunService.createQuestionRun(
@@ -64,8 +65,12 @@ public class OrchestrationAnswerService {
     }
 
     private AnswerResult generateAnswer(AnswerQuestionCommand command, QuestionRun run) {
-        AnswerPolicy policy = GoldFacility001Fixture.policy();
-        if (!policy.goldenCase().goldenCaseId().equals(command.externalQuestionId())) {
+        AnswerPolicy policy = answerPolicies.stream()
+                .filter(candidate -> candidate.goldenCases().stream()
+                        .anyMatch(goldenCase -> goldenCase.goldenCaseId().equals(command.externalQuestionId())))
+                .findFirst()
+                .orElse(null);
+        if (policy == null) {
             return placeholder(run);
         }
 

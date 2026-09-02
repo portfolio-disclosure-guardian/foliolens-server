@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +31,7 @@ import com.foliolens.backend.calculation.fake.FakeDisclosureCalculator;
 import com.foliolens.backend.evaluation.controller.EvaluationAnswerController;
 import com.foliolens.backend.global.exception.BusinessException;
 import com.foliolens.backend.global.exception.ErrorCode;
+import com.foliolens.backend.policy.FinanceDomainAnswerPolicies;
 import com.foliolens.backend.policy.GoldFacility001Fixture;
 import com.foliolens.backend.policy.GoldenCase;
 import com.foliolens.backend.question.AnswerQuestionCommand;
@@ -40,7 +42,7 @@ import com.foliolens.backend.retrieval.fake.FakeDisclosureRetriever;
 
 class OrchestrationAnswerServiceTest {
 
-    private final GoldenCase goldenCase = GoldFacility001Fixture.policy().goldenCase();
+    private final GoldenCase goldenCase = GoldFacility001Fixture.policy().goldenCases().getFirst();
     private final UUID runId = UUID.randomUUID();
     private final String requestId = "request-001";
 
@@ -73,7 +75,8 @@ class OrchestrationAnswerServiceTest {
                 new FakeDisclosureCalculator(),
                 new AnswerOutcomeJudge(),
                 new com.foliolens.backend.answer.AnswerReferenceValidator(),
-                hcxAnswerGenerator);
+                hcxAnswerGenerator,
+                List.of(FinanceDomainAnswerPolicies.type08(), GoldFacility001Fixture.policy()));
     }
 
     @Test

@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.foliolens.backend.answer.FakeHcxAnswerGenerator;
 import com.foliolens.backend.answer.HcxAnswerGenerator;
+import com.foliolens.backend.question.plan.HcxPlanGenerator;
 
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -19,8 +20,9 @@ class HcxAnswerGeneratorWiringTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withUserConfiguration(
-                    TestConfig.class, HcxRestClientConfig.class,
-                    ClovaStudioHcxAnswerGenerator.class, FakeHcxAnswerGenerator.class);
+                    TestConfig.class, HcxRestClientConfig.class, ClovaChatClient.class,
+                    ClovaStudioHcxAnswerGenerator.class, ClovaStudioHcxPlanGenerator.class,
+                    FakeHcxAnswerGenerator.class);
 
     @Test
     void enabled_true면_실제_client_빈만_활성화된다() {
@@ -39,6 +41,8 @@ class HcxAnswerGeneratorWiringTest {
                     assertEquals(1, context.getBeansOfType(HcxAnswerGenerator.class).size());
                     assertEquals(1, context.getBeansOfType(ClovaStudioHcxAnswerGenerator.class).size());
                     assertEquals(0, context.getBeansOfType(FakeHcxAnswerGenerator.class).size());
+                    assertEquals(1, context.getBeansOfType(HcxPlanGenerator.class).size());
+                    assertEquals(1, context.getBeansOfType(ClovaStudioHcxPlanGenerator.class).size());
                 });
     }
 
@@ -49,6 +53,7 @@ class HcxAnswerGeneratorWiringTest {
                     assertEquals(1, context.getBeansOfType(HcxAnswerGenerator.class).size());
                     assertEquals(1, context.getBeansOfType(FakeHcxAnswerGenerator.class).size());
                     assertEquals(0, context.getBeansOfType(ClovaStudioHcxAnswerGenerator.class).size());
+                    assertEquals(0, context.getBeansOfType(HcxPlanGenerator.class).size());
                 });
     }
 
@@ -58,6 +63,7 @@ class HcxAnswerGeneratorWiringTest {
             assertEquals(1, context.getBeansOfType(HcxAnswerGenerator.class).size());
             assertEquals(1, context.getBeansOfType(FakeHcxAnswerGenerator.class).size());
             assertEquals(0, context.getBeansOfType(ClovaStudioHcxAnswerGenerator.class).size());
+            assertEquals(0, context.getBeansOfType(HcxPlanGenerator.class).size());
         });
     }
 
