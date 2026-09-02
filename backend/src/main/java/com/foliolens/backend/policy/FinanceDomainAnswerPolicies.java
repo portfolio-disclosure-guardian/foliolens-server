@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * finance_domain 08~12 문서를 옮긴 미승인 draft 정책 묶음.
+ * finance_domain 01~12 문서를 옮긴 미승인 draft 정책 묶음.
  *
  * <p>각 문서의 골든 후보는 아직 C_REVIEW_PENDING이므로 실행 ID로 노출하지 않는다.
  * Fact의 필수도와 계산 입력 binding도 질문별 C 승인 전이므로 여기서는 지원 가능한
@@ -37,7 +37,677 @@ public final class FinanceDomainAnswerPolicies {
     }
 
     public static List<AnswerPolicy> all() {
-        return List.of(type08(), type09(), type10(), type11(), type12());
+        return List.of(
+                type01(), type02(), type03(), type04(), type05(), type06(),
+                type07(), type08(), type09(), type10(), type11(), type12());
+    }
+
+    public static AnswerPolicy type01() {
+        return draft(
+                "단일판매·공급계약",
+                facts("""
+                        contract.contract_type.raw
+                        contract.contract_type.code
+                        contract.description.raw
+                        contract.counterparty.raw
+                        contract.counterparty.normalized_name
+                        contract.counterparty_relation.raw
+                        contract.counterparty_relation.code
+                        contract.region.raw
+                        contract.signed_date.raw
+                        contract.signed_date.value
+                        contract.start_date.raw
+                        contract.start_date.value
+                        contract.end_date.raw
+                        contract.end_date.value
+                        contract.conditions.raw
+                        contract.payment_terms.raw
+                        contract.notes.raw
+                        contract.withheld_reason.raw
+                        contract.withheld_until.raw
+                        contract.withheld_until.value
+                        contract.amount.raw_text
+                        contract.amount.numeric_value
+                        contract.amount.unit_raw
+                        contract.amount.unit_code
+                        contract.amount.normalized_value_krw
+                        contract.amount.currency_raw
+                        contract.amount.currency_code
+                        contract.amount.foreign_value
+                        contract.amount.disclosed_fx_rate
+                        contract.amount.fx_base_date.value
+                        contract.amount.vat_text
+                        contract.amount.vat_status
+                        contract.amount.basis_text
+                        contract.amount.basis_code
+                        contract.termination_amount.raw_text
+                        contract.termination_amount.numeric_value
+                        contract.termination_amount.unit_raw
+                        contract.termination_amount.unit_code
+                        contract.termination_amount.normalized_value_krw
+                        contract.termination_amount.currency_raw
+                        contract.termination_amount.currency_code
+                        contract.termination_amount.foreign_value
+                        contract.termination_amount.disclosed_fx_rate
+                        contract.termination_amount.fx_base_date.value
+                        contract.termination_amount.vat_text
+                        contract.termination_amount.vat_status
+                        contract.termination_amount.basis_text
+                        contract.termination_amount.basis_code
+                        contract.reference_sales.raw_text
+                        contract.reference_sales.normalized_value_krw
+                        contract.reference_sales.period
+                        contract.reference_sales.accounting_basis
+                        contract.disclosed_sales_ratio.raw
+                        contract.disclosed_sales_ratio.value
+                        contract.status
+                        termination.reason.raw
+                        termination.context.raw
+                        termination.date.raw
+                        termination.date.value
+                        termination.original_contract_receipt_no.raw
+                        termination.original_contract_receipt_no.resolved
+                        termination.performance_amount
+                        correction.reason.raw
+                        correction.changes[].fact_id
+                        correction.changes[].before.raw
+                        correction.changes[].after.raw
+                        """),
+                calculations(
+                        calculation("CONTRACT_SALES_RATIO_CHECK", CalculationOperation.RATIO),
+                        calculation("CONTRACT_DURATION_DAYS", CalculationOperation.DATE_DURATION),
+                        calculation("CONTRACT_AMOUNT_CHANGE", CalculationOperation.DIFFERENCE),
+                        calculation("CONTRACT_AMOUNT_CHANGE_RATE", CalculationOperation.CHANGE_RATE),
+                        calculation("CONTRACT_FX_CHECK", CalculationOperation.PRODUCT)),
+                List.of(
+                        "계약금액을 확정매출로 표현",
+                        "해지금액을 확정손실로 표현",
+                        "현재 환율 또는 임의 VAT를 적용",
+                        "후보 관계만으로 계약상태 확정"
+                ));
+    }
+
+    public static AnswerPolicy type02() {
+        return draft(
+                "신규시설투자",
+                facts("""
+                        facility.type.raw
+                        facility.type.code
+                        facility.target.raw
+                        facility.purpose.raw
+                        facility.location.raw
+                        facility.scale.raw
+                        facility.amount.raw_text
+                        facility.amount.normalized_value_krw
+                        facility.equity_amount.raw_text
+                        facility.equity_amount.normalized_value_krw
+                        facility.equity_basis.raw
+                        facility.disclosed_equity_ratio.raw
+                        facility.disclosed_equity_ratio.value
+                        facility.decision_date.raw
+                        facility.decision_date.value
+                        facility.start_date.raw
+                        facility.start_date.value
+                        facility.end_date.raw
+                        facility.end_date.value
+                        facility.amount.vat_text
+                        facility.amount.vat_status
+                        facility.amount.basis_text
+                        facility.amount.basis_code
+                        facility.amount.foreign_value
+                        facility.amount.currency_code
+                        facility.amount.disclosed_fx_rate
+                        facility.amount.fx_base_date.value
+                        facility.amount.included_items.raw
+                        facility.amount.excluded_items.raw
+                        facility.total_project_amount.raw_text
+                        facility.total_project_amount.normalized_value_krw
+                        facility.company_share_amount.raw_text
+                        facility.company_share_amount.normalized_value_krw
+                        facility.company_share_rate.raw
+                        facility.company_share_rate.value
+                        facility.funding_sources.raw
+                        facility.start_date_basis.raw
+                        facility.end_date_basis.raw
+                        facility.amount_change_possible.raw
+                        facility.schedule_change_possible.raw
+                        facility.permit_status.raw
+                        facility.related_disclosures[].receipt_no
+                        facility.current_status
+                        facility.notes
+                        facility.withheld_reason
+                        facility.withheld_until
+                        correction.changes[].fact_id
+                        correction.changes[].before.raw
+                        correction.changes[].after.raw
+                        """),
+                calculations(
+                        calculation("FACILITY_EQUITY_RATIO_CHECK", CalculationOperation.RATIO),
+                        calculation("FACILITY_AMOUNT_CHANGE", CalculationOperation.DIFFERENCE),
+                        calculation("FACILITY_AMOUNT_CHANGE_RATE", CalculationOperation.CHANGE_RATE),
+                        calculation("FACILITY_DURATION_DAYS", CalculationOperation.DATE_DURATION),
+                        calculation("FACILITY_SCHEDULE_DELAY", CalculationOperation.DATE_DURATION),
+                        calculation("FACILITY_FX_CHECK", CalculationOperation.PRODUCT),
+                        calculation("FACILITY_COMPANY_SHARE_CHECK", CalculationOperation.PRODUCT),
+                        calculation("FACILITY_DISCLOSURE_THRESHOLD", CalculationOperation.DIFFERENCE),
+                        calculation("FACILITY_CHANGE_THRESHOLD", CalculationOperation.RATIO),
+                        calculation("FACILITY_CASH_RATIO", CalculationOperation.RATIO),
+                        calculation("FACILITY_OPERATING_CASH_FLOW_RATIO", CalculationOperation.RATIO),
+                        calculation("FACILITY_TOTAL_ASSET_RATIO", CalculationOperation.RATIO),
+                        calculation("FACILITY_LATEST_EQUITY_RATIO", CalculationOperation.RATIO),
+                        calculation("FACILITY_ANNUALIZED_PLAN_AMOUNT", CalculationOperation.RATIO)),
+                List.of(
+                        "계획 투자금액을 실제 집행액으로 표현",
+                        "종료 예정일을 확정 준공일로 표현",
+                        "재무규모 대비 비율로 유동성 위기·수익성 단정",
+                        "최신 규정을 과거 공시에 소급 적용"
+                ));
+    }
+
+    public static AnswerPolicy type03() {
+        return draft(
+                "투자판단 관련 주요경영사항",
+                facts("""
+                        management_event.title.raw
+                        management_event.type.code
+                        management_event.subject.raw
+                        management_event.summary.raw
+                        management_event.parties[].name.raw
+                        management_event.parties[].role.code
+                        management_event.agreement_stage.raw
+                        management_event.agreement_stage.code
+                        management_event.legal_binding_text
+                        management_event.amount.raw_text
+                        management_event.amount.unit_raw
+                        management_event.amount.currency_code
+                        management_event.amount.normalized_value
+                        management_event.amount.basis_text
+                        management_event.amount.basis_code
+                        management_event.decision_date.raw
+                        management_event.decision_date.value
+                        management_event.start_date.raw
+                        management_event.start_date.value
+                        management_event.end_date.raw
+                        management_event.end_date.value
+                        management_event.conditions.raw
+                        management_event.uncertainties.raw
+                        management_event.status.code
+                        management_event.related_disclosures[]
+                        management_event.milestones[].name.raw
+                        management_event.milestones[].condition.raw
+                        management_event.milestones[].planned_date.value
+                        management_event.milestones[].achievement_evidence.raw
+                        management_event.milestones[].status.code
+                        management_event.milestones[].maximum_amount.raw_text
+                        management_event.milestones[].maximum_amount.normalized_value
+                        management_event.milestones[].confirmed_amount.raw_text
+                        management_event.milestones[].confirmed_amount.normalized_value
+                        management_event.milestones[].payment_date.value
+                        management_event.support.grant_amount.raw_text
+                        management_event.support.grant_amount.normalized_value
+                        management_event.support.loan_amount.raw_text
+                        management_event.support.loan_amount.normalized_value
+                        management_event.support.provider.raw
+                        management_event.guarantee.amount.raw_text
+                        management_event.guarantee.amount.normalized_value
+                        management_event.guarantee.scope.raw
+                        management_event.commercial.document_type
+                        management_event.commercial.binding_status
+                        management_event.commercial.binding_clauses[]
+                        management_event.commercial.counterparty
+                        management_event.commercial.product_service
+                        management_event.commercial.proposed_amount
+                        management_event.commercial.proposed_quantity
+                        management_event.commercial.conditions[]
+                        management_event.commercial.followup_contract_receipt_no
+                        management_event.clinical.candidate
+                        management_event.clinical.indication
+                        management_event.clinical.phase
+                        management_event.clinical.event_type
+                        management_event.clinical.regulator
+                        management_event.clinical.country
+                        management_event.clinical.protocol_id
+                        management_event.clinical.target_subjects
+                        management_event.clinical.enrolled_subjects
+                        management_event.clinical.primary_endpoints[]
+                        management_event.clinical.result_summary
+                        management_event.clinical.safety_summary
+                        management_event.clinical.next_step
+                        management_event.license.asset
+                        management_event.license.licensor
+                        management_event.license.licensee
+                        management_event.license.territory
+                        management_event.license.total_maximum
+                        management_event.license.upfront_amount
+                        management_event.license.royalty_terms
+                        management_event.license.refund_obligation
+                        management_event.license.milestones[].invoice_date
+                        management_event.license.milestones[].expected_payment_date
+                        management_event.license.milestones[].receipt_date
+                        management_event.license.milestones[].recognized_revenue
+                        management_event.governance.agreement_type
+                        management_event.governance.option_type
+                        management_event.governance.right_holder
+                        management_event.governance.obligors[]
+                        management_event.governance.subject_share_count
+                        management_event.governance.price
+                        management_event.governance.exercise_start_date
+                        management_event.governance.exercise_end_date
+                        management_event.governance.exercise_status
+                        management_event.governance.potential_controller
+                        """),
+                calculations(
+                        calculation("MILESTONE_CONFIRMED_SHARE", CalculationOperation.RATIO),
+                        calculation("SUPPORT_GRANT_SHARE", CalculationOperation.RATIO),
+                        calculation("COMPANY_NET_BURDEN_REFERENCE", CalculationOperation.DIFFERENCE),
+                        calculation("MANAGEMENT_EVENT_DURATION_DAYS", CalculationOperation.DATE_DURATION),
+                        calculation("MANAGEMENT_EVENT_AMOUNT_CHANGE", CalculationOperation.DIFFERENCE),
+                        calculation("CLINICAL_ENROLLMENT_RATE", CalculationOperation.RATIO),
+                        calculation("GOVERNANCE_OPTION_SHARE_RATIO", CalculationOperation.RATIO)),
+                List.of(
+                        "MOU·LOI를 확정 본계약으로 표현",
+                        "최대 조건부대가를 현재 매출·확정수익으로 표현",
+                        "대출·보증을 상환의무 없는 보조금으로 표현",
+                        "임상 등록률을 임상 성공률로 표현",
+                        "수령 예정·청구·수익 인식을 실제 입금으로 표현"
+                ));
+    }
+
+    public static AnswerPolicy type04() {
+        return draft(
+                "주식 등의 대량보유상황보고서",
+                facts("""
+                        holding.report_type.raw
+                        holding.report_type.code
+                        holding.report_date.raw
+                        holding.report_date.value
+                        holding.obligation_date.raw
+                        holding.obligation_date.value
+                        holding.reporter.name.raw
+                        holding.reporter.relationship_to_issuer.raw
+                        holding.report_reason.raw
+                        holding.purpose.raw
+                        holding.purpose.code
+                        holding.previous.total_security_count.raw
+                        holding.previous.total_security_count.value
+                        holding.current.total_security_count.raw
+                        holding.current.total_security_count.value
+                        holding.previous.total_security_ratio.raw
+                        holding.previous.total_security_ratio.value
+                        holding.current.total_security_ratio.raw
+                        holding.current.total_security_ratio.value
+                        holding.current.voting_share_count.raw
+                        holding.current.voting_share_count.value
+                        holding.current.voting_share_ratio.raw
+                        holding.current.voting_share_ratio.value
+                        holding.members[].name.raw
+                        holding.members[].member_type.code
+                        holding.members[].relationship_to_reporter.raw
+                        holding.members[].relationship_to_issuer.raw
+                        holding.members[].voting_share_count
+                        holding.members[].potential_security_count
+                        holding.members[].total_security_count
+                        holding.members[].total_security_ratio
+                        holding.members[].account_type.raw
+                        holding.members[].proprietary_account_count
+                        holding.members[].customer_account_count
+                        holding.securities[].holder_name.raw
+                        holding.securities[].security_type.raw
+                        holding.securities[].security_type.code
+                        holding.securities[].count
+                        holding.securities[].ratio
+                        holding.securities[].ownership_form.raw
+                        holding.transactions[].holder_name.raw
+                        holding.transactions[].change_date.raw
+                        holding.transactions[].change_date.value
+                        holding.transactions[].method.raw
+                        holding.transactions[].method.code
+                        holding.transactions[].security_type.code
+                        holding.transactions[].before_count
+                        holding.transactions[].change_count
+                        holding.transactions[].after_count
+                        holding.transactions[].unit_price.raw
+                        holding.transactions[].unit_price.value
+                        holding.transactions[].note.raw
+                        holding.contracts[].holder_name.raw
+                        holding.contracts[].contract_type.raw
+                        holding.contracts[].contract_type.code
+                        holding.contracts[].share_count
+                        holding.contracts[].share_ratio
+                        holding.contracts[].counterparty.raw
+                        holding.contracts[].start_date
+                        holding.contracts[].end_date
+                        holding.contracts[].loan_amount
+                        holding.contracts[].interest_rate
+                        holding.contracts[].maintenance_ratio
+                        holding.funding[].own_funds
+                        holding.funding[].borrowed_funds
+                        holding.funding[].other_funds
+                        holding.funding[].source_text
+                        holding.form_version
+                        holding.formula_basis_text.raw
+                        """),
+                calculations(
+                        calculation("TOTAL_SECURITY_RATIO_CHECK", CalculationOperation.RATIO),
+                        calculation("VOTING_SHARE_RATIO_CHECK", CalculationOperation.RATIO),
+                        calculation("HOLDING_COUNT_CHANGE", CalculationOperation.DIFFERENCE),
+                        calculation("HOLDING_RATIO_CHANGE_PP", CalculationOperation.DIFFERENCE),
+                        calculation("ESTIMATED_TRANSACTION_AMOUNT", CalculationOperation.PRODUCT),
+                        calculation("PLEDGED_HOLDING_RATIO", CalculationOperation.RATIO),
+                        calculation("HOLDING_RATIO_CHANGE_RATE", CalculationOperation.CHANGE_RATE),
+                        calculation("MEMBER_GROUP_SHARE", CalculationOperation.RATIO),
+                        calculation("CONTRACTED_HOLDING_RATIO", CalculationOperation.RATIO),
+                        calculation("FUNDING_SOURCE_SHARE", CalculationOperation.RATIO),
+                        calculation("POTENTIAL_RIGHTS_RATIO_GAP_PP", CalculationOperation.DIFFERENCE),
+                        calculation("FIVE_PERCENT_THRESHOLD_CHECK", CalculationOperation.DIFFERENCE)),
+                List.of(
+                        "대표보고자의 단독보유량으로 보고집단 합계를 표현",
+                        "특별관계자 편입·제외를 실제 매매로 단정",
+                        "잠재권리를 현재 의결권 주식으로 표현",
+                        "담보계약을 즉시 반대매매로 표현",
+                        "5% 임계치 계산으로 법 위반·보고 적법성 단정"
+                ));
+    }
+
+    public static AnswerPolicy type05() {
+        return draft(
+                "정기공시 재무·사업정보",
+                facts("""
+                        periodic.report_type.raw
+                        periodic.report_type.code
+                        periodic.base_year
+                        periodic.base_month
+                        periodic.period_start.raw
+                        periodic.period_start.value
+                        periodic.period_end.raw
+                        periodic.period_end.value
+                        periodic.period_kind.code
+                        periodic.accounting_basis.raw
+                        periodic.accounting_basis.code
+                        periodic.currency.raw
+                        periodic.currency.code
+                        periodic.unit.raw
+                        periodic.unit.code
+                        periodic.audit_opinion.raw
+                        financial.revenue
+                        financial.operating_profit
+                        financial.net_income
+                        financial.net_income_parent
+                        financial.cost_of_sales
+                        financial.gross_profit
+                        financial.total_assets
+                        financial.total_liabilities
+                        financial.total_equity
+                        financial.current_assets
+                        financial.current_liabilities
+                        financial.cash_and_equivalents
+                        financial.operating_cash_flow
+                        financial.investing_cash_flow
+                        financial.financing_cash_flow
+                        financial.capex_cash_outflow
+                        financial.borrowings_current
+                        financial.borrowings_noncurrent
+                        financial.interest_expense
+                        financial.inventories
+                        financial.trade_receivables
+                        financial.eps_basic
+                        business.rnd_expense
+                        business.order_backlog
+                        business.segment_revenue[]
+                        business.capex_plan
+                        audit.opinion
+                        audit.key_audit_matters[]
+                        share.outstanding_count
+                        share.treasury_count
+                        dividend.cash_dividend_total
+                        dividend.dps[]
+                        correction.scope.raw
+                        correction.scope.code
+                        correction.reason.raw
+                        correction.original_submission_date
+                        correction.changes[].fact_id
+                        correction.changes[].before.raw
+                        correction.changes[].after.raw
+                        """),
+                calculations(
+                        calculation("REVENUE_CHANGE_RATE", CalculationOperation.CHANGE_RATE),
+                        calculation("OPERATING_MARGIN", CalculationOperation.RATIO),
+                        calculation("NET_MARGIN", CalculationOperation.RATIO),
+                        calculation("DEBT_TO_EQUITY", CalculationOperation.RATIO),
+                        calculation("CURRENT_RATIO", CalculationOperation.RATIO),
+                        calculation("OCF_MARGIN", CalculationOperation.RATIO),
+                        calculation("RND_TO_SALES", CalculationOperation.RATIO),
+                        calculation("GROSS_MARGIN", CalculationOperation.RATIO),
+                        calculation("NET_DEBT_REFERENCE", CalculationOperation.DIFFERENCE),
+                        calculation("TREASURY_SHARE_RATIO", CalculationOperation.RATIO),
+                        calculation("DIVIDEND_PAYOUT_RATIO", CalculationOperation.RATIO)),
+                List.of(
+                        "기간종류·연결기준이 다른 재무값을 직접 비교",
+                        "공란·대시를 숫자 0으로 변환",
+                        "감사의견·핵심감사사항으로 부도·분식 확정",
+                        "과거 성장률·배당성향을 미래 성장·배당 보장으로 표현"
+                ));
+    }
+
+    public static AnswerPolicy type06() {
+        return draft(
+                "자기주식 취득·처분·신탁",
+                facts("""
+                        treasury_share.event_title.raw
+                        treasury_share.event_type.code
+                        treasury_share.event_status.code
+                        treasury_share.decision_date.raw
+                        treasury_share.decision_date.value
+                        treasury_share.purpose.raw
+                        treasury_share.purpose.code
+                        treasury_share.method.raw
+                        treasury_share.method.code
+                        treasury_share.period.start.raw
+                        treasury_share.period.start.value
+                        treasury_share.period.end.raw
+                        treasury_share.period.end.value
+                        treasury_share.brokers[].name.raw
+                        treasury_share.trust.counterparty.raw
+                        treasury_share.trust.contract_amount.raw_text
+                        treasury_share.trust.contract_amount.normalized_value_krw
+                        treasury_share.trust.start_date
+                        treasury_share.trust.end_date
+                        treasury_share.trust.termination_reason.raw
+                        treasury_share.result_report_date
+                        treasury_share.cancellation_reason
+                        treasury_share.trust.before_owned_count
+                        treasury_share.trust.after_owned_count
+                        treasury_share.trust.returned_share_count
+                        treasury_share.trust.cash_return_amount
+                        treasury_share.classes[].stock_class.raw
+                        treasury_share.classes[].stock_class.code
+                        treasury_share.classes[].planned_share_count
+                        treasury_share.classes[].planned_unit_price.raw_text
+                        treasury_share.classes[].planned_unit_price.normalized_value_krw
+                        treasury_share.classes[].planned_amount.raw_text
+                        treasury_share.classes[].planned_amount.normalized_value_krw
+                        treasury_share.classes[].actual_share_count
+                        treasury_share.classes[].actual_amount.raw_text
+                        treasury_share.classes[].actual_amount.normalized_value_krw
+                        treasury_share.classes[].before_owned_count
+                        treasury_share.classes[].after_owned_count
+                        treasury_share.classes[].total_issued_share_count
+                        treasury_share.allottees[].name.raw
+                        treasury_share.allottees[].relationship.raw
+                        treasury_share.allottees[].allocated_count
+                        treasury_share.allottees[].selection_reason.raw
+                        treasury_share.allottees[].price_per_share
+                        treasury_share.allottees[].amount
+                        treasury_share.allottees[].lockup_period
+                        """),
+                calculations(
+                        calculation("TREASURY_PLANNED_AVERAGE_PRICE", CalculationOperation.RATIO),
+                        calculation("TREASURY_ACTUAL_AVERAGE_PRICE", CalculationOperation.RATIO),
+                        calculation("TREASURY_EXECUTION_RATE", CalculationOperation.RATIO),
+                        calculation("TREASURY_HOLDING_RATIO", CalculationOperation.RATIO),
+                        calculation("TREASURY_EXTERNAL_FLOAT_CHANGE", CalculationOperation.DIFFERENCE),
+                        calculation("TREASURY_AMOUNT_VARIANCE", CalculationOperation.DIFFERENCE),
+                        calculation("TREASURY_SHARE_VARIANCE", CalculationOperation.DIFFERENCE),
+                        calculation("TREASURY_TRUST_UTILIZATION", CalculationOperation.RATIO),
+                        calculation("TREASURY_RETIREMENT_RATIO", CalculationOperation.RATIO)),
+                List.of(
+                        "계획수량·예정금액을 실제 집행 결과로 표현",
+                        "자기주식 취득을 즉시 소각으로 표현",
+                        "기존 자기주식 처분을 신주발행 희석으로 표현",
+                        "신탁계약금액을 실제 취득금액으로 표현",
+                        "기계적 주식수 변화로 주가 상승·하락 단정"
+                ));
+    }
+
+    public static AnswerPolicy type07() {
+        return draft(
+                "자금조달·자본변동",
+                facts("""
+                        financing.event_type.raw
+                        financing.event_type.code
+                        financing.decision_date
+                        financing.issue_amount.raw
+                        financing.issue_amount.normalized
+                        financing.issue_method.raw
+                        financing.issue_method.code
+                        financing.use_of_proceeds[].purpose
+                        financing.use_of_proceeds[].amount
+                        financing.equity.stock_class.raw
+                        financing.equity.stock_class.code
+                        financing.equity.new_share_count
+                        financing.equity.par_value
+                        financing.equity.pre_outstanding_share_count
+                        financing.equity.issue_price.raw
+                        financing.equity.issue_price.normalized
+                        financing.equity.reference_price.raw
+                        financing.equity.reference_price.normalized
+                        financing.equity.disclosed_discount_rate
+                        financing.equity.issue_price_method
+                        financing.equity.allocation_method.raw
+                        financing.equity.allocation_method.code
+                        financing.equity.payment_date
+                        financing.equity.listing_date
+                        financing.equity.lockup_period
+                        financing.equity.actual_issued_share_count
+                        financing.equity.actual_paid_amount
+                        financing.allottees[].name
+                        financing.allottees[].relationship_to_issuer
+                        financing.allottees[].selection_reason
+                        financing.allottees[].allocated_share_count
+                        financing.allottees[].allocated_amount
+                        financing.allottees[].lockup_period
+                        financing.allottees[].recent_transaction_text
+                        financing.bonus.new_share_count
+                        financing.bonus.pre_share_count
+                        financing.bonus.record_date
+                        financing.bonus.shares_per_old_share
+                        financing.bonus.reserve_source
+                        financing.bonus.reserve_amount
+                        financing.bonus.excluded_treasury_share_count
+                        financing.bonus.fractional_share_policy
+                        financing.reduction.reduced_share_count
+                        financing.reduction.capital_before
+                        financing.reduction.capital_after
+                        financing.reduction.shares_before
+                        financing.reduction.shares_after
+                        financing.reduction.reported_reduction_rate
+                        financing.reduction.method
+                        financing.reduction.reason
+                        financing.reduction.paid_or_free
+                        financing.reduction.payment_per_share
+                        financing.reduction.record_date
+                        financing.reduction.effective_date
+                        financing.reduction.treasury_only
+                        financing.bond.series
+                        financing.bond.type.raw
+                        financing.bond.type.code
+                        financing.bond.face_amount
+                        financing.bond.actual_issued_amount
+                        financing.bond.outstanding_amount
+                        financing.bond.coupon_rate
+                        financing.bond.yield_to_maturity
+                        financing.bond.issue_date
+                        financing.bond.maturity_date
+                        financing.bond.subscription_date
+                        financing.bond.payment_date
+                        financing.bond.repayment_method
+                        financing.bond.issue_region
+                        financing.bond.issue_market
+                        financing.bond.manager
+                        financing.bond.guarantee_status
+                        financing.conversion.price
+                        financing.conversion.ratio
+                        financing.conversion.stock_class
+                        financing.conversion.start_date
+                        financing.conversion.end_date
+                        financing.conversion.potential_share_count
+                        financing.conversion.reported_potential_share_ratio
+                        financing.conversion.reset_terms
+                        financing.conversion.floor_price
+                        financing.conversion.upward_reset_terms
+                        financing.warrant.exercise_price
+                        financing.warrant.period_start
+                        financing.warrant.period_end
+                        financing.warrant.potential_share_count
+                        financing.warrant.is_detachable
+                        financing.exchange.price
+                        financing.exchange.target_type.raw
+                        financing.exchange.target_type.code
+                        financing.exchange.target_company
+                        financing.exchange.target_share_count
+                        financing.exchange.uses_issuer_treasury_shares
+                        financing.exchange.period_start
+                        financing.exchange.period_end
+                        financing.options[].option_type.raw
+                        financing.options[].option_type.code
+                        financing.options[].holder
+                        financing.options[].counterparty
+                        financing.options[].start_date
+                        financing.options[].end_date
+                        financing.options[].exercisable_amount
+                        financing.options[].exercisable_share_count
+                        financing.options[].exercise_price
+                        financing.options[].trigger_condition
+                        financing.options[].nominee_designation_possible
+                        financing.coco.capital_tier
+                        financing.coco.is_perpetual
+                        financing.coco.first_call_date
+                        financing.coco.supervisory_approval_required
+                        financing.coco.coupon_discretionary
+                        financing.coco.coupon_non_cumulative
+                        financing.coco.trigger_condition
+                        financing.coco.loss_absorption_method.raw
+                        financing.coco.loss_absorption_method.code
+                        financing.coco.write_down_scope
+                        financing.coco.write_down_permanent
+                        financing.coco.conversion_share_count
+                        financing.coco.capital_purpose
+                        correction.date
+                        correction.original_disclosure_date
+                        correction.reason
+                        correction.scope[]
+                        correction.changes[].fact_id
+                        correction.changes[].before.raw
+                        correction.changes[].after.raw
+                        """),
+                calculations(
+                        calculation("EQUITY_DILUTION_MAX", CalculationOperation.SHARE_DILUTION),
+                        calculation("ISSUANCE_SIZE_TO_PRE_SHARES", CalculationOperation.RATIO),
+                        calculation("ISSUE_DISCOUNT_CHECK", CalculationOperation.CHANGE_RATE),
+                        calculation("ISSUE_AMOUNT_CHECK", CalculationOperation.PRODUCT),
+                        calculation("POTENTIAL_DILUTION_MAX", CalculationOperation.SHARE_DILUTION),
+                        calculation("REFIXING_MAX_SHARES", CalculationOperation.RATIO),
+                        calculation("BONUS_SHARE_MULTIPLIER", CalculationOperation.RATIO),
+                        calculation("CAPITAL_REDUCTION_RATE_CHECK", CalculationOperation.RATIO),
+                        calculation("USE_OF_PROCEEDS_SUM_CHECK", CalculationOperation.SUM),
+                        calculation("BOND_SIMPLE_CASH_INTEREST", CalculationOperation.PRODUCT)),
+                List.of(
+                        "예정 발행액을 실제 납입액으로 표현",
+                        "잠재희석을 실제 희석 확정값이나 주가 하락률로 표현",
+                        "무상증자로 기업가치가 증가한다고 표현",
+                        "EB 자기주식 교부에 일반 신주 희석식을 적용",
+                        "CoCo 최초 콜일을 확정 만기로 표현"
+                ));
     }
 
     public static AnswerPolicy type08() {

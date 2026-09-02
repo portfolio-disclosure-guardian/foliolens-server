@@ -88,6 +88,8 @@ foliolens:
       max-failures: ${FOLIOLENS_CHUNKING_MAX_FAILURES:5}
 
   question:
+    answer:
+      require-approved-golden-case: ${FOLIOLENS_REQUIRE_APPROVED_GOLDEN_CASE:false}
     plan:
       search-disclosures:
         # TOOL_CONTRACTS.md 5.1절 예시값. ROLE_A_SPEC.md 9.1절 DECISION_REQUIRED — 골든셋 측정 후 확정
