@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -25,6 +26,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.foliolens.backend.answer.AnswerOutcome;
 import com.foliolens.backend.answer.AnswerOutcomeJudge;
 import com.foliolens.backend.answer.AnswerResult;
+import com.foliolens.backend.answer.AnswerSafetyValidator;
 import com.foliolens.backend.answer.HcxAnswerGenerator;
 import com.foliolens.backend.calculation.CalculationVerdict;
 import com.foliolens.backend.calculation.fake.FakeDisclosureCalculator;
@@ -69,14 +71,20 @@ class OrchestrationAnswerServiceTest {
                 eq(goldenCase.question()), any(), any(), any(), eq(AnswerOutcome.COMPLETED)))
                 .thenReturn(goldenCase.expectedAnswer());
 
-        service = new OrchestrationAnswerService(
+        service = newService(false);
+    }
+
+    private OrchestrationAnswerService newService(boolean requireApprovedGoldenCase) {
+        return new OrchestrationAnswerService(
                 questionRunService,
                 FakeDisclosureRetriever.complete(),
                 new FakeDisclosureCalculator(),
                 new AnswerOutcomeJudge(),
                 new com.foliolens.backend.answer.AnswerReferenceValidator(),
+                new AnswerSafetyValidator(),
                 hcxAnswerGenerator,
-                List.of(FinanceDomainAnswerPolicies.type08(), GoldFacility001Fixture.policy()));
+                List.of(FinanceDomainAnswerPolicies.type08(), GoldFacility001Fixture.policy()),
+                requireApprovedGoldenCase);
     }
 
     @Test
@@ -105,6 +113,31 @@ class OrchestrationAnswerServiceTest {
                 eq(goldenCase.question()), any(), any(), any(), eq(AnswerOutcome.COMPLETED));
 
         assertEquals(failure, assertThrows(BusinessException.class, () -> service.getAnswer(command())));
+        verify(questionRunService).failQuestionRun(run, ErrorCode.AGENT_502_1);
+    }
+
+    @Test
+    void 승인_강제를_켜면_검토중인_골든_케이스는_placeholder로_처리한다() {
+        service = newService(true);
+
+        AnswerResult result = service.getAnswer(command());
+
+        assertEquals(AnswerOutcome.UNANSWERABLE, result.outcome());
+        assertEquals("답변 생성 기능이 아직 연결되지 않았습니다.", result.renderedAnswer());
+        verifyNoInteractions(hcxAnswerGenerator);
+        verify(questionRunService).completeQuestionRun(run, result.renderedAnswer());
+    }
+
+    @Test
+    void 안전_검증에_실패한_답변은_run을_FAILED로_기록한다() {
+        String forbiddenExpression = GoldFacility001Fixture.policy().forbiddenExpressions().getFirst();
+        when(hcxAnswerGenerator.generateAnswer(
+                eq(goldenCase.question()), any(), any(), any(), eq(AnswerOutcome.COMPLETED)))
+                .thenReturn("검증된 사실 뒤에 " + forbiddenExpression + " 표현이 포함됐습니다.");
+
+        BusinessException failure = assertThrows(BusinessException.class, () -> service.getAnswer(command()));
+
+        assertEquals(ErrorCode.AGENT_502_1, failure.getErrorCode());
         verify(questionRunService).failQuestionRun(run, ErrorCode.AGENT_502_1);
     }
 
