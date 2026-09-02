@@ -8,12 +8,27 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDocument, UUID> {
+
+    /**
+     * Fact 추출처럼 공시 메타데이터도 함께 사용하는 조회.
+     */
+    @EntityGraph(attributePaths = "disclosure")
+    @Query("""
+            SELECT document
+            FROM DisclosureDocument document
+            WHERE document.id = :documentId
+            """)
+    Optional<DisclosureDocument> findWithDisclosureById(
+            @Param("documentId") UUID documentId
+    );
 
     /**
      * NFC 정규화 상대경로로 원문 파일 조회

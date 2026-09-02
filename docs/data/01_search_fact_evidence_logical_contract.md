@@ -541,7 +541,7 @@ disclosure_fact_evidences
 | `facility.target` | `TEXT` | 투자대상 행·기타사항 |
 | `facility.amount` | `DECIMAL` | 투자금액 값·단위·금액 주석 |
 | `facility.equity_amount` | `DECIMAL` | 자기자본 값·단위·회계기준 주석 |
-| `facility.disclosed_equity_ratio` | `DECIMAL` | 자기자본대비 비율 행 |
+| `facility.equity_ratio` | `DECIMAL` | 자기자본대비 비율 행 |
 | `facility.purpose` | `TEXT` | 투자목적 행·문장 |
 | `facility.start_date` | `DATE` | 투자기간 시작일과 의미 |
 | `facility.end_date` | `DATE` | 투자기간 종료일과 의미 |
