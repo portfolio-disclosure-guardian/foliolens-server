@@ -46,8 +46,8 @@ class AnswerScenarioTest {
         List<AnswerClaim> claims = judge.buildClaims(retrieval, calculation);
         assertEquals(retrieval.facts().size(), claims.stream().filter(c -> c.type() == AnswerClaimType.FACT).count());
         assertEquals(1, claims.stream().filter(c -> c.type() == AnswerClaimType.CALCULATION).count());
-        assertEquals(policy.goldenCase().expectedAnswer(),
-                answerGenerator.generateAnswer(policy.goldenCase().question(), policy, retrieval, calculation, outcome));
+        assertEquals(policy.goldenCases().getFirst().expectedAnswer(),
+                answerGenerator.generateAnswer(policy.goldenCases().getFirst().question(), policy, retrieval, calculation, outcome));
     }
 
     @Test
@@ -71,7 +71,7 @@ class AnswerScenarioTest {
         List<AnswerClaim> claims = judge.buildClaims(retrieval, calculation);
         assertTrue(claims.stream().noneMatch(c -> c.factIds().contains("FACT-facility.purpose")));
         assertTrue(answerGenerator.generateAnswer(
-                policy.goldenCase().question(), policy, retrieval, calculation, outcome).contains("일부 필수 항목"));
+                policy.goldenCases().getFirst().question(), policy, retrieval, calculation, outcome).contains("일부 필수 항목"));
     }
 
     @Test
@@ -89,7 +89,7 @@ class AnswerScenarioTest {
         List<AnswerClaim> claims = judge.buildClaims(retrieval, calculation);
         assertTrue(claims.isEmpty());
         assertTrue(answerGenerator.generateAnswer(
-                policy.goldenCase().question(), policy, retrieval, calculation, outcome).contains("확인할 수 없습니다"));
+                policy.goldenCases().getFirst().question(), policy, retrieval, calculation, outcome).contains("확인할 수 없습니다"));
     }
 
 }

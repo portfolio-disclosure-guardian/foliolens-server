@@ -57,7 +57,7 @@ public enum ErrorCode {
     // 데이터셋 오류
     DATASET_409_1(HttpStatus.CONFLICT, "DATASET_409_1", "같은 데이터셋의 적재 작업이 이미 진행 중입니다."),
     DATASET_503_1(HttpStatus.SERVICE_UNAVAILABLE, "DATASET_503_1", "공시 데이터가 아직 준비되지 않았습니다."),
-    DATASET_503_2(HttpStatus.SERVICE_UNAVAILABLE, "DATASET_503_1", "데이터셋 적재 중 오류가 발생했습니다."),
+    DATASET_503_2(HttpStatus.SERVICE_UNAVAILABLE, "DATASET_503_2", "데이터셋 적재 중 오류가 발생했습니다."),
 
     // Agent 오류
     AGENT_429_1(HttpStatus.TOO_MANY_REQUESTS, "AGENT_429_1", "잠시 후 다시 시도해 주세요."),

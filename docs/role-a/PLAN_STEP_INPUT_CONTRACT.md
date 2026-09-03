@@ -222,6 +222,7 @@ public record CalculateInput(
 ```java
 public record SearchEvidenceInput(
         String disclosureIdsFrom,
+        List<String> concepts,
         List<String> factKeys,
         List<String> sectionHints,
         List<String> keywords,
@@ -234,13 +235,14 @@ public record SearchEvidenceInput(
 | 필드 | 의미 |
 |---|---|
 | `disclosureIdsFrom` | 검색 범위를 제공하는 이전 공시 검색 step |
+| `concepts` | 질문의 상위 금융 개념과 연결되는 검색 힌트 |
 | `factKeys` | 누락된 정형 사실 또는 근거를 찾을 fact key |
 | `sectionHints` | 우선 탐색할 장·절 이름 |
 | `keywords` | 본문·표에서 찾을 표현 |
 | `blockTypes` | 허용할 근거 블록 종류 |
 | `topK` | 반환할 근거 후보 상한 |
 
-현재 `DisclosureContentBlockType`에는 `TABLE_ROW`와 `SECTION`이 없고 대신 `HEADING`이 있다. 목표 문서는 표의 행 단위 근거와 `SECTION`을 요구한다. 따라서 `TABLE_ROW` 지원과 `SECTION`↔`HEADING` 의미·매핑을 역할 B와 합의하기 전에는 `blockTypes`의 최종 enum을 확정할 수 없다. 임시로 문자열을 사용하더라도 validator의 allowlist를 통과한 값만 검증 계획에 넣어야 한다.
+현재 실행 어댑터는 `blockTypes`를 문자열 allowlist로 검증한 뒤 청크 유형으로 변환한다. `TABLE`, `TABLE_ROW`, `TABLE_CELL`은 TABLE 청크로, `TEXT`, `TITLE`, `HEADING`, `SECTION`, `PARAGRAPH`는 TEXT 청크로 검색한다. 반환 결과에는 청크가 가리키는 원본 TABLE 행 범위를 별도 출처 정보로 보존한다.
 
 범위 없는 전체 본문 검색을 막기 위해 `factKeys`, `sectionHints`, `keywords` 중 최소 하나는 비어 있지 않아야 한다. 모든 문자열은 trim 후 빈 값과 중복을 거부하고 `blockTypes`와 `topK`에는 allowlist와 서버 상한을 적용한다.
 
@@ -418,9 +420,9 @@ public interface ToolInput {
 | `PlanStepCandidate.input` | 전체가 `String` | `JsonNode`로 교체 |
 | `PlanStep.input` | `ToolInput` | 방향은 일치 |
 | `ToolInput` | 일반 interface | 그대로 사용 가능 |
-| `SearchDisclosuresInput` | 빈 record | 3.1의 최소 필드 추가 |
+| `SearchDisclosuresInput` | 분류·subtype·제목·limit | 첫 수직 검색 입력 적용 완료 |
 | `LookupFactsInput` | 참조 + fact keys | 첫 슬라이스 방향과 일치 |
-| `SearchEvidenceInput` | 빈 record | 실제 경로 도입 시 4.1 계약 확정 |
+| `SearchEvidenceInput` | 참조 + concept·fact·section·keyword·block type·topK | 실제 검색 경로에 적용 완료 |
 | `ResolveDisclosureHistoryInput` | 검색 도구와 같은 필드 | 4.2의 이력 참조 구조로 교체 필요 |
 | `CalculateInput` | 참조 + `RATIO` binding | 첫 슬라이스 방향과 일치 |
 | `CalculationOperation` | `RATIO`만 존재 | 첫 슬라이스에는 충분, 이후 C 정책에 따라 확장 |

@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 import com.foliolens.backend.disclosure.domain.DisclosureDocumentRole;
 import com.foliolens.backend.disclosure.domain.fact.EvidenceBlockType;
@@ -26,6 +27,7 @@ import com.foliolens.backend.retrieval.RetrievedFact;
 // A5 fake 수직 연결: GOLD-FACILITY-001 fixture 데이터를 QuestionPlan 내용과 무관하게 고정 반환한다.
 // 실제 검색은 하지 않으며, 어떤 fact를 뺄지만 골라 완료/부분/답변불가 시나리오를 만든다.
 @Component
+@Profile("fake-retrieval")
 public final class FakeDisclosureRetriever implements DisclosureRetriever {
 
     private static final Map<String, FactValueType> VALUE_TYPES = Map.of(
@@ -64,7 +66,7 @@ public final class FakeDisclosureRetriever implements DisclosureRetriever {
 
     @Override
     public RetrievalResult retrieve(QuestionPlan plan) {
-        GoldenCase goldenCase = GoldFacility001Fixture.policy().goldenCase();
+        GoldenCase goldenCase = GoldFacility001Fixture.policy().goldenCases().getFirst();
 
         if (!includeDocuments) {
             return new RetrievalResult(List.of(), List.of(), List.of(), List.of(), plan.steps(),
@@ -77,7 +79,7 @@ public final class FakeDisclosureRetriever implements DisclosureRetriever {
                 "2. 투자내역", "투자내역 원문", 1.0);
 
         RetrievedEvidence evidence = new RetrievedEvidence(
-                "EVD-1", goldenCase.receiptNo(), "DOC-1", DisclosureDocumentRole.MAIN,
+                "EVD-1", goldenCase.receiptNo(), document.documentId(), DisclosureDocumentRole.MAIN,
                 "2", EvidenceBlockType.PARAGRAPH, "투자내역 원문", 1.0, EvidenceStatus.VERIFIED);
 
         List<RetrievedFact> facts = new ArrayList<>();
