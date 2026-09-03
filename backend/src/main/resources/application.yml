@@ -90,6 +90,9 @@ foliolens:
         report-path: ${FOLIOLENS_VALIDATE_XML_PARSING_REPORT_PATH:./reports/xml-parsing-validation.csv}
 
   parsing:
+    pdf-persistence:
+      enabled: ${FOLIOLENS_PERSIST_PDF_PARSING_ON_STARTUP:false}
+      max-documents: ${FOLIOLENS_PERSIST_PDF_PARSING_MAX_DOCUMENTS:3}
     html-persistence:
       batch:
         enabled: ${FOLIOLENS_PERSIST_HTML_PARSING_ON_STARTUP:false}

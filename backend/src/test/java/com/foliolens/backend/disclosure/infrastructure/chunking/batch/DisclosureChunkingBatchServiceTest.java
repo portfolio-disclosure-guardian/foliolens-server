@@ -161,8 +161,8 @@ class DisclosureChunkingBatchServiceTest {
 
     @Test
     void unsupportedOrMissingFormatIsRejectedBeforeDatabaseAccess() {
-        assertThatThrownBy(() -> batchService.processNextBatch(5, DisclosureDocumentContentFormat.PDF, null))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("DART_XML 또는 HTML");
+        assertThatThrownBy(() -> batchService.processNextBatch(5, DisclosureDocumentContentFormat.UNKNOWN, null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("DART_XML, HTML 또는 PDF");
         assertThatThrownBy(() -> batchService.processNextBatch(5, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
         org.mockito.Mockito.verifyNoInteractions(documentRepository, chunkingService);

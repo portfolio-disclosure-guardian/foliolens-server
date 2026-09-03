@@ -120,6 +120,73 @@ class DisclosureParsingPersistenceIntegrationTest {
     @Autowired
     DisclosureChunkingBatchService chunkingBatchService;
 
+    @Autowired
+    com.foliolens.backend.disclosure.service.DisclosureChunkSearchService searchService;
+
+    @Test
+    void pdfPartialTextCanBeChunkedSearchedAndReplacedWithPageProvenance(@TempDir Path directory) throws Exception {
+        jdbcTemplate.update("""
+                UPDATE disclosure_documents SET content_format='PDF', file_extension='pdf', file_name='test.pdf',
+                    relative_path='periodic/test/test.pdf', normalized_relative_path='periodic/test/test.pdf'
+                WHERE id=?
+                """, DOCUMENT_ID);
+        Path source = com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextDisclosureParserTest.createPdf(
+                directory.resolve("test.pdf"), List.of("Revenue 100,000 KRW", "", "A\n".repeat(25) + "Revenue 200 KRW"));
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        var document = documentRepository.findById(DOCUMENT_ID).orElseThrow();
+        assertThat(document.getParseStatus()).isEqualTo(DisclosureDocumentParseStatus.PARTIAL);
+        assertThat(document.getParseMetadata().path("mode").asText()).isEqualTo("PDF_TEXT_ONLY");
+        assertThat(document.getParseMetadata().path("pageCount").asInt()).isEqualTo(3);
+        assertThat(document.getParseMetadata().path("noTextPages").get(0).asInt()).isEqualTo(2);
+        assertThat(document.getParseMetadata().path("suspiciousPages").get(0).asInt()).isEqualTo(3);
+        assertThat(document.isChunkable()).isTrue();
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.PDF,
+                null, PageRequest.of(0, 1)).getContent()).hasSize(1);
+
+        var batch = chunkingBatchService.processNextBatch(1, DisclosureDocumentContentFormat.PDF, null);
+        assertThat(batch.failedCount()).isZero();
+        assertThat(batch.savedChunkCount()).isEqualTo(2);
+        assertThat(documentRepository.findById(DOCUMENT_ID).orElseThrow().getChunkStatus())
+                .isEqualTo(DisclosureDocumentChunkStatus.COMPLETED);
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.PDF,
+                null, PageRequest.of(0, 1)).getContent()).isEmpty();
+
+        var condition = new com.foliolens.backend.disclosure.infrastructure.search.DisclosureChunkSearchCondition(
+                java.util.Set.of(DISCLOSURE_ID), java.util.Set.of(DOCUMENT_ID), java.util.Set.of(), java.util.Set.of(),
+                List.of(), List.of("Revenue"), java.util.Set.of(), 10, 0);
+        var found = searchService.search(condition);
+        assertThat(found.items()).hasSize(2);
+        assertThat(found.warnings()).anyMatch(w -> w.contains("수치 Fact"));
+        assertThat(found.warnings()).anyMatch(w -> w.contains("품질이 의심"));
+        assertThat(found.items().stream().flatMap(h -> h.sources().stream()).toList())
+                .extracting(com.foliolens.backend.disclosure.infrastructure.search.DisclosureChunkSourceReference::sourcePageNumber)
+                .containsExactlyInAnyOrder(1, 3);
+        found.items().forEach(hit -> hit.sources().forEach(s -> {
+            assertThat(s.sourceLineStart()).isEqualTo(-1);
+            assertThat(s.sourceLineEnd()).isEqualTo(-1);
+        }));
+
+        var repeated = chunkingService.generateAndStore(DOCUMENT_ID);
+        assertThat(repeated.deletedChunkCount()).isEqualTo(2);
+        assertThat(repeated.savedChunkCount()).isEqualTo(2);
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        assertThat(chunkRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isZero();
+        assertThat(documentRepository.findById(DOCUMENT_ID).orElseThrow().getChunkStatus())
+                .isEqualTo(DisclosureDocumentChunkStatus.PENDING);
+        assertThat(chunkingService.generateAndStore(DOCUMENT_ID).savedChunkCount()).isEqualTo(2);
+    }
+
+    @Test
+    void unrelatedPartialDocumentsRemainNotChunkable() {
+        var document = documentRepository.findById(DOCUMENT_ID).orElseThrow();
+        document.markPartial("another-parser", "1.0", "일부만 추출", java.time.Instant.now());
+        documentRepository.saveAndFlush(document);
+        assertThat(document.isChunkable()).isFalse();
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.DART_XML,
+                null, PageRequest.of(0, 1)).getContent()).isEmpty();
+        assertThatThrownBy(() -> chunkingService.generateAndStore(DOCUMENT_ID)).isInstanceOf(IllegalStateException.class);
+    }
+
     @BeforeEach
     void setUp() {
         jdbcTemplate.execute("TRUNCATE TABLE companies CASCADE");

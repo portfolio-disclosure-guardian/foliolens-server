@@ -120,6 +120,26 @@ public class DisclosureDocument extends BaseTimeEntity {
     private Instant parsedAt;
 
     @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "parse_metadata", nullable = false, columnDefinition = "jsonb")
+    private JsonNode parseMetadata = JsonNodeFactory.instance.objectNode();
+
+    public void replaceParseMetadata(JsonNode metadata) {
+        if (metadata == null || !metadata.isObject()) {
+            throw new IllegalArgumentException("파싱 메타데이터는 JSON 객체여야 합니다.");
+        }
+        this.parseMetadata = metadata.deepCopy();
+    }
+
+    /** 일반 PARTIAL을 허용하지 않고, 명시적으로 저장한 PDF 텍스트 최소 지원만 허용한다. */
+    public boolean isChunkable() {
+        return parseStatus == DisclosureDocumentParseStatus.COMPLETED
+                || (parseStatus == DisclosureDocumentParseStatus.PARTIAL
+                    && contentFormat == DisclosureDocumentContentFormat.PDF
+                    && "PdfTextDisclosureParser".equals(parserName)
+                    && "PDF_TEXT_ONLY".equals(parseMetadata.path("mode").asText()));
+    }
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "related_disclosure_links", nullable = false, columnDefinition = "jsonb")
     private JsonNode relatedDisclosureLinks = JsonNodeFactory.instance.objectNode()
             .put("schemaVersion", 1)
@@ -329,6 +349,7 @@ public class DisclosureDocument extends BaseTimeEntity {
     }
 
     public void resetParsing() {
+        this.parseMetadata = JsonNodeFactory.instance.objectNode();
         this.parseStatus = DisclosureDocumentParseStatus.PENDING;
         this.parserName = null;
         this.parserVersion = null;

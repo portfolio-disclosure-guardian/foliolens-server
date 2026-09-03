@@ -72,6 +72,21 @@ public class DisclosureContentBlock extends BaseTimeEntity {
     @Column(name = "source_line_end", nullable = false)
     private int sourceLineEnd;
 
+    @Column(name = "source_page_number")
+    private Integer sourcePageNumber;
+
+    @Column(name = "text_extraction_suspect", nullable = false)
+    private boolean textExtractionSuspect;
+
+    public void attachPdfPage(int pageNumber, boolean suspect) {
+        if (pageNumber < 1 || disclosureDocument.getContentFormat() != DisclosureDocumentContentFormat.PDF
+                || blockType != DisclosureContentBlockType.PARAGRAPH || sourceLineStart != -1 || sourceLineEnd != -1) {
+            throw new IllegalArgumentException("PDF 페이지 위치는 PDF 텍스트 블록에만 지정할 수 있습니다.");
+        }
+        this.sourcePageNumber = pageNumber;
+        this.textExtractionSuspect = suspect;
+    }
+
     private DisclosureContentBlock(
             DisclosureDocument disclosureDocument,
             DisclosureSection section,
