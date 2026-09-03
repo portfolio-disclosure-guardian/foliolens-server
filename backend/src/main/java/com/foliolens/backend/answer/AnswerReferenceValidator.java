@@ -2,6 +2,7 @@ package com.foliolens.backend.answer;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -14,6 +15,7 @@ import com.foliolens.backend.disclosure.domain.fact.EvidenceStatus;
 import com.foliolens.backend.disclosure.domain.fact.FactValidationStatus;
 import com.foliolens.backend.global.exception.BusinessException;
 import com.foliolens.backend.global.exception.ErrorCode;
+import com.foliolens.backend.policy.AnswerPolicy;
 import com.foliolens.backend.retrieval.RetrievalResult;
 import com.foliolens.backend.retrieval.RetrievedDocument;
 import com.foliolens.backend.retrieval.RetrievedEvidence;
@@ -21,6 +23,45 @@ import com.foliolens.backend.retrieval.RetrievedFact;
 
 @Component
 public class AnswerReferenceValidator {
+
+    public RetrievalResult verifiedOnly(RetrievalResult retrieval, AnswerPolicy policy) {
+        List<RetrievedFact> facts = retrieval.facts().stream()
+                .filter(fact -> fact.validationStatus() == FactValidationStatus.VERIFIED)
+                .toList();
+        Set<String> evidenceIds = facts.stream()
+                .flatMap(fact -> fact.evidenceIds().stream())
+                .collect(java.util.stream.Collectors.toSet());
+        List<RetrievedEvidence> evidences = retrieval.evidences().stream()
+                .filter(evidence -> evidence.status() == EvidenceStatus.VERIFIED)
+                .filter(evidence -> evidenceIds.contains(evidence.evidenceId()))
+                .toList();
+        Set<String> documentIds = evidences.stream()
+                .map(RetrievedEvidence::documentId)
+                .collect(java.util.stream.Collectors.toSet());
+        List<RetrievedDocument> documents = retrieval.documents().stream()
+                .filter(document -> documentIds.contains(document.documentId()))
+                .toList();
+
+        Set<String> verifiedFactKeys = facts.stream()
+                .map(RetrievedFact::factKey)
+                .collect(java.util.stream.Collectors.toSet());
+        LinkedHashSet<String> missingFactKeys = new LinkedHashSet<>(retrieval.missingFactKeys());
+        policy.facts().stream()
+                .map(fact -> fact.factKey())
+                .filter(factKey -> !verifiedFactKeys.contains(factKey))
+                .forEach(missingFactKeys::add);
+
+        return new RetrievalResult(
+                documents,
+                facts,
+                evidences,
+                List.of(),
+                retrieval.executedSteps(),
+                List.copyOf(missingFactKeys),
+                retrieval.coverage(),
+                List.of(),
+                retrieval.retrievalVersion());
+    }
 
     public List<RetrievedDocument> validate(
             RetrievalResult retrieval,

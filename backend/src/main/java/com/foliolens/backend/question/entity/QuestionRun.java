@@ -87,6 +87,14 @@ public class QuestionRun extends BaseCreatedEntity {
         this.startedAt = Instant.now();
     }
 
+    public void recordQueryPlan(JsonNode queryPlanJson) {
+        requireStatus(QuestionRunStatus.PROCESSING);
+        if (queryPlanJson == null || queryPlanJson.isNull()) {
+            throw new IllegalArgumentException("검증된 질문 계획은 필수입니다.");
+        }
+        this.queryPlanJson = queryPlanJson.deepCopy();
+    }
+
     public void complete(String answerText) {
         requireStatus(QuestionRunStatus.PROCESSING);
         this.status = QuestionRunStatus.COMPLETED;

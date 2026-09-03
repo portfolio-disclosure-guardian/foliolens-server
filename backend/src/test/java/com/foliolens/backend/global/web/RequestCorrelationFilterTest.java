@@ -2,6 +2,8 @@ package com.foliolens.backend.global.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.concurrent.FutureTask;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -34,5 +36,17 @@ class RequestCorrelationFilterTest {
         assertThat(response.getHeader(RequestCorrelationFilter.HEADER_NAME))
                 .isNotBlank()
                 .isNotEqualTo("unsafe request");
+    }
+
+    @Test
+    void 별도_실행_thread에도_request_ID를_전파할_수_있다() throws Exception {
+        FutureTask<String> task = new FutureTask<>(() ->
+                RequestCorrelationFilter.withRequestId(
+                        "evaluation-002",
+                        RequestCorrelationFilter::currentRequestId));
+        Thread thread = Thread.ofVirtual().start(task);
+
+        thread.join();
+        assertThat(task.get()).isEqualTo("evaluation-002");
     }
 }

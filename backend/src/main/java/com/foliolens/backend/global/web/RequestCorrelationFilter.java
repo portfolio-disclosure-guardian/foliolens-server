@@ -2,6 +2,7 @@ package com.foliolens.backend.global.web;
 
 import java.io.IOException;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 import org.slf4j.MDC;
@@ -38,6 +39,14 @@ public class RequestCorrelationFilter extends OncePerRequestFilter {
     public static String currentRequestId() {
         String requestId = MDC.get(MDC_KEY);
         return requestId == null ? UUID.randomUUID().toString() : requestId;
+    }
+
+    public static <T> T withRequestId(String requestId, Supplier<T> action) {
+        try (MDC.MDCCloseable ignored = MDC.putCloseable(
+                MDC_KEY,
+                normalize(requestId))) {
+            return action.get();
+        }
     }
 
     private static String normalize(String requestId) {

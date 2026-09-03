@@ -2,6 +2,9 @@ package com.foliolens.backend.policy;
 
 import com.foliolens.backend.answer.AnswerOutcome;
 import com.foliolens.backend.calculation.CalculationVerdict;
+import com.foliolens.backend.question.plan.candidate.DateRangeCandidate;
+import com.foliolens.backend.question.plan.candidate.PlanTimeCandidate;
+import com.foliolens.backend.question.plan.candidate.QuestionPlanCandidate;
 import com.foliolens.backend.question.plan.confirmation.DateRange;
 import com.foliolens.backend.question.plan.confirmation.PlanTime;
 import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
@@ -13,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 // GOLD-FACILITY-001_C_APPROVAL_STEPS_1_TO_7.md의 1~7단계 승인 내용을 옮긴 fixture.
@@ -113,8 +117,7 @@ public final class GoldFacility001Fixture {
 
     public static QuestionPlan questionPlan() {
         GoldenCase goldenCase = policy().goldenCases().getFirst();
-        LocalDate decisionDate = LocalDate.parse(
-                goldenCase.expectedNormalizedFacts().get("facility.decision_date"));
+        LocalDate decisionDate = decisionDate(goldenCase);
         DateRange decisionMonth = new DateRange(
                 decisionDate.withDayOfMonth(1),
                 decisionDate.withDayOfMonth(decisionDate.lengthOfMonth()));
@@ -126,5 +129,27 @@ public final class GoldFacility001Fixture {
                 new PlanTime(decisionMonth, decisionMonth, decisionDate),
                 List.of(),
                 List.of());
+    }
+
+    // HcxPlanGenerator가 아직 없을 때(hcx.api.enabled=false) FakeHcxPlanGenerator가 돌려주는
+    // 검증 전 계획 후보. questionPlan()과 같은 날짜를 문자열로만 표현한다.
+    public static QuestionPlanCandidate questionPlanCandidate() {
+        GoldenCase goldenCase = policy().goldenCases().getFirst();
+        LocalDate decisionDate = decisionDate(goldenCase);
+        DateRangeCandidate decisionMonth = new DateRangeCandidate(
+                decisionDate.withDayOfMonth(1).toString(),
+                decisionDate.withDayOfMonth(decisionDate.lengthOfMonth()).toString());
+
+        return new QuestionPlanCandidate(
+                QUESTION_PLAN_SCHEMA_VERSION,
+                List.of(goldenCase.companyName()),
+                new PlanTimeCandidate(decisionMonth, decisionMonth, decisionDate.toString()),
+                Set.of(),
+                List.of(),
+                List.of());
+    }
+
+    private static LocalDate decisionDate(GoldenCase goldenCase) {
+        return LocalDate.parse(goldenCase.expectedNormalizedFacts().get("facility.decision_date"));
     }
 }

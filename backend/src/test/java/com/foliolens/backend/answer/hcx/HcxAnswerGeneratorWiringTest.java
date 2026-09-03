@@ -4,12 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
 
 import com.foliolens.backend.answer.FakeHcxAnswerGenerator;
 import com.foliolens.backend.answer.HcxAnswerGenerator;
+import com.foliolens.backend.question.plan.FakeHcxPlanGenerator;
 import com.foliolens.backend.question.plan.HcxPlanGenerator;
 
 import tools.jackson.databind.ObjectMapper;
@@ -22,7 +25,7 @@ class HcxAnswerGeneratorWiringTest {
             .withUserConfiguration(
                     TestConfig.class, HcxRestClientConfig.class, ClovaChatClient.class,
                     ClovaStudioHcxAnswerGenerator.class, ClovaStudioHcxPlanGenerator.class,
-                    FakeHcxAnswerGenerator.class);
+                    FakeHcxAnswerGenerator.class, FakeHcxPlanGenerator.class);
 
     @Test
     void enabled_true면_실제_client_빈만_활성화된다() {
@@ -43,6 +46,7 @@ class HcxAnswerGeneratorWiringTest {
                     assertEquals(0, context.getBeansOfType(FakeHcxAnswerGenerator.class).size());
                     assertEquals(1, context.getBeansOfType(HcxPlanGenerator.class).size());
                     assertEquals(1, context.getBeansOfType(ClovaStudioHcxPlanGenerator.class).size());
+                    assertEquals(0, context.getBeansOfType(FakeHcxPlanGenerator.class).size());
                 });
     }
 
@@ -53,7 +57,9 @@ class HcxAnswerGeneratorWiringTest {
                     assertEquals(1, context.getBeansOfType(HcxAnswerGenerator.class).size());
                     assertEquals(1, context.getBeansOfType(FakeHcxAnswerGenerator.class).size());
                     assertEquals(0, context.getBeansOfType(ClovaStudioHcxAnswerGenerator.class).size());
-                    assertEquals(0, context.getBeansOfType(HcxPlanGenerator.class).size());
+                    assertEquals(1, context.getBeansOfType(HcxPlanGenerator.class).size());
+                    assertEquals(1, context.getBeansOfType(FakeHcxPlanGenerator.class).size());
+                    assertEquals(0, context.getBeansOfType(ClovaStudioHcxPlanGenerator.class).size());
                 });
     }
 
@@ -63,8 +69,29 @@ class HcxAnswerGeneratorWiringTest {
             assertEquals(1, context.getBeansOfType(HcxAnswerGenerator.class).size());
             assertEquals(1, context.getBeansOfType(FakeHcxAnswerGenerator.class).size());
             assertEquals(0, context.getBeansOfType(ClovaStudioHcxAnswerGenerator.class).size());
-            assertEquals(0, context.getBeansOfType(HcxPlanGenerator.class).size());
+            assertEquals(1, context.getBeansOfType(HcxPlanGenerator.class).size());
+            assertEquals(1, context.getBeansOfType(FakeHcxPlanGenerator.class).size());
+            assertEquals(0, context.getBeansOfType(ClovaStudioHcxPlanGenerator.class).size());
         });
+    }
+
+    @Test
+    void evaluation_profile은_HCX를_명시적으로_켜기_전_외부_HTTP_client가_0개다() {
+        new ApplicationContextRunner()
+                .withInitializer(new ConfigDataApplicationContextInitializer())
+                .withUserConfiguration(
+                        TestConfig.class, HcxRestClientConfig.class, ClovaChatClient.class,
+                        ClovaStudioHcxAnswerGenerator.class, ClovaStudioHcxPlanGenerator.class,
+                        FakeHcxAnswerGenerator.class, FakeHcxPlanGenerator.class)
+                .withPropertyValues("spring.profiles.active=evaluation")
+                .run(context -> {
+                    assertEquals(0, context.getBeansOfType(RestClient.class).size());
+                    assertEquals(0, context.getBeansOfType(ClovaChatClient.class).size());
+                    assertEquals(0, context.getBeansOfType(ClovaStudioHcxAnswerGenerator.class).size());
+                    assertEquals(0, context.getBeansOfType(ClovaStudioHcxPlanGenerator.class).size());
+                    assertEquals(1, context.getBeansOfType(FakeHcxAnswerGenerator.class).size());
+                    assertEquals(1, context.getBeansOfType(FakeHcxPlanGenerator.class).size());
+                });
     }
 
     @Configuration

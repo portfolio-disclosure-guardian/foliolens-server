@@ -1,5 +1,6 @@
 package com.foliolens.backend.answer.hcx;
 
+import java.net.SocketTimeoutException;
 import java.util.List;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -8,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -61,6 +63,17 @@ public class ClovaChatClient {
                     ErrorCode.AGENT_502_1, "HCX 호출이 실패했습니다: HTTP " + e.getStatusCode().value(), e);
         } catch (ResourceAccessException e) {
             throw new BusinessException(ErrorCode.AGENT_504_1, "HCX 호출이 시간 내에 끝나지 않았습니다.", e);
+        } catch (RestClientException e) {
+            if (hasCause(e, SocketTimeoutException.class)) {
+                throw new BusinessException(
+                        ErrorCode.AGENT_504_1,
+                        "HCX 호출이 시간 내에 끝나지 않았습니다.",
+                        e);
+            }
+            throw new BusinessException(
+                    ErrorCode.AGENT_502_1,
+                    "HCX 호출을 처리하지 못했습니다.",
+                    e);
         }
 
         if (response == null || response.status() == null
@@ -73,6 +86,15 @@ public class ClovaChatClient {
             throw new BusinessException(ErrorCode.AGENT_502_1, "HCX 응답에 내용이 없습니다.");
         }
         return response.result().message().content();
+    }
+
+    private static boolean hasCause(Throwable throwable, Class<? extends Throwable> causeType) {
+        for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
+            if (causeType.isInstance(cause)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private record ChatRequest(List<ChatMessage> messages, double topP, int topK, int maxTokens, double temperature) {

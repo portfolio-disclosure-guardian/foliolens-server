@@ -18,6 +18,7 @@ import com.foliolens.backend.policy.GoldFacility001Fixture;
 import com.foliolens.backend.question.plan.toolinput.CalculationOperation;
 import com.foliolens.backend.retrieval.RetrievalResult;
 import com.foliolens.backend.retrieval.RetrievedEvidence;
+import com.foliolens.backend.retrieval.RetrievedFact;
 import com.foliolens.backend.retrieval.fake.FakeDisclosureRetriever;
 
 class AnswerReferenceValidatorTest {
@@ -39,6 +40,52 @@ class AnswerReferenceValidatorTest {
                 List.of(calculation),
                 judge.buildClaims(retrieval, calculation)))
                 .containsExactly(retrieval.documents().getFirst());
+    }
+
+    @Test
+    void HCX에_전달할_검색결과에는_검증된_fact와_그_근거만_남긴다() {
+        RetrievedEvidence verified = retrieval.evidences().getFirst();
+        RetrievedEvidence candidate = new RetrievedEvidence(
+                "EVD-CANDIDATE",
+                verified.disclosureId(),
+                verified.documentId(),
+                verified.documentRole(),
+                "candidate-section",
+                verified.blockType(),
+                "미검증 후보 내용",
+                0.9,
+                com.foliolens.backend.disclosure.domain.fact.EvidenceStatus.CANDIDATE);
+        RetrievedFact original = retrieval.facts().getFirst();
+        RetrievedFact unvalidated = new RetrievedFact(
+                "FACT-CANDIDATE",
+                original.disclosureId(),
+                "facility.unverified",
+                original.valueType(),
+                "미검증 후보 값",
+                "미검증 후보 값",
+                original.unit(),
+                original.periodStart(),
+                original.periodEnd(),
+                List.of(candidate.evidenceId()),
+                com.foliolens.backend.disclosure.domain.fact.FactValidationStatus.UNVALIDATED);
+        RetrievalResult mixed = new RetrievalResult(
+                retrieval.documents(),
+                java.util.stream.Stream.concat(retrieval.facts().stream(), java.util.stream.Stream.of(unvalidated)).toList(),
+                List.of(verified, candidate),
+                retrieval.history(),
+                retrieval.executedSteps(),
+                retrieval.missingFactKeys(),
+                retrieval.coverage(),
+                List.of("미검증 후보 경고"),
+                retrieval.retrievalVersion());
+
+        RetrievalResult filtered = validator.verifiedOnly(mixed, GoldFacility001Fixture.policy());
+
+        assertThat(filtered.facts()).doesNotContain(unvalidated);
+        assertThat(filtered.evidences()).containsExactly(verified);
+        assertThat(filtered.documents()).containsExactlyElementsOf(retrieval.documents());
+        assertThat(filtered.history()).isEmpty();
+        assertThat(filtered.warnings()).isEmpty();
     }
 
     @Test

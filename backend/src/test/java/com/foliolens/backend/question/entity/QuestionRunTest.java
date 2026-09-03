@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import com.foliolens.backend.global.exception.ErrorCode;
 import com.foliolens.backend.question.RequestChannel;
 
+import tools.jackson.databind.json.JsonMapper;
+
 class QuestionRunTest {
 
     @Test
@@ -35,6 +37,18 @@ class QuestionRunTest {
         assertThat(run.getErrorCode()).isEqualTo(ErrorCode.AGENT_504_1);
         assertThat(run.getCompletedAt()).isNotNull();
         assertThat(run.getProcessingTimeMillis()).isNotNegative();
+    }
+
+    @Test
+    void PROCESSING_run은_검증된_계획_JSON을_기록한다() {
+        QuestionRun run = newRun();
+        var planJson = JsonMapper.builder().build().createObjectNode()
+                .put("schemaVersion", 1);
+
+        run.start();
+        run.recordQueryPlan(planJson);
+
+        assertThat(run.getQueryPlanJson()).isEqualTo(planJson);
     }
 
     @Test

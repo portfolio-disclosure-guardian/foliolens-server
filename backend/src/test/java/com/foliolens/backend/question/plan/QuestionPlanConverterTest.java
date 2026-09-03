@@ -220,6 +220,48 @@ class QuestionPlanConverterTest {
         assertThat(plan.steps()).hasSize(2);
     }
 
+    @Test
+    void 같은_입력의_공시검색을_반복하면_QUESTION_400_4_예외를_던진다() {
+        QuestionPlanCandidate candidate = candidateWithSteps(List.of(
+                searchDisclosuresStep("s1", 10),
+                searchDisclosuresStep("s2", 10)
+        ));
+
+        assertThatThrownBy(() -> converter.candidateToConfirmation(candidate))
+                .isInstanceOf(BusinessException.class)
+                .extracting(ex -> ((BusinessException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.QUESTION_400_4);
+    }
+
+    @Test
+    void 조건이_달라도_공시검색은_최초와_재검색_한_번만_허용한다() {
+        QuestionPlanCandidate candidate = candidateWithSteps(List.of(
+                searchDisclosuresStep("s1", 10),
+                searchDisclosuresStep("s2", 11),
+                searchDisclosuresStep("s3", 12)
+        ));
+
+        assertThatThrownBy(() -> converter.candidateToConfirmation(candidate))
+                .isInstanceOf(BusinessException.class)
+                .extracting(ex -> ((BusinessException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.QUESTION_400_4);
+    }
+
+    @Test
+    void 공시와_근거검색을_합쳐서_추가검색은_한_번만_허용한다() {
+        QuestionPlanCandidate candidate = candidateWithSteps(List.of(
+                searchDisclosuresStep("s1", 10),
+                searchEvidenceStep("s2", "s1", "투자금액"),
+                searchDisclosuresStep("s3", 11),
+                searchEvidenceStep("s4", "s1", "자기자본")
+        ));
+
+        assertThatThrownBy(() -> converter.candidateToConfirmation(candidate))
+                .isInstanceOf(BusinessException.class)
+                .extracting(ex -> ((BusinessException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.QUESTION_400_4);
+    }
+
     private PlanStepCandidate searchDisclosuresStep(String stepId, int limit) {
         JsonNode input = objectMapper.valueToTree(Map.of(
                 "categories", List.of("EXCHANGE"),
@@ -228,6 +270,21 @@ class QuestionPlanConverterTest {
                 "limit", limit
         ));
         return new PlanStepCandidate(stepId, ToolType.SEARCH_DISCLOSURES, input, List.of());
+    }
+
+    private PlanStepCandidate searchEvidenceStep(
+            String stepId,
+            String disclosureIdsFrom,
+            String keyword) {
+        return new PlanStepCandidate(
+                stepId,
+                ToolType.SEARCH_EVIDENCE,
+                objectMapper.valueToTree(Map.of(
+                        "disclosureIdsFrom", disclosureIdsFrom,
+                        "keywords", List.of(keyword),
+                        "topK", 5
+                )),
+                List.of(disclosureIdsFrom));
     }
 
     private QuestionPlanCandidate candidateWithCompanyOnly(String companyMention) {

@@ -9,6 +9,10 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -17,6 +21,7 @@ import org.springframework.web.client.RestClient;
 
 import com.foliolens.backend.global.exception.BusinessException;
 import com.foliolens.backend.global.exception.ErrorCode;
+import com.sun.net.httpserver.HttpServer;
 
 class ClovaChatClientTest {
 
@@ -87,6 +92,40 @@ class ClovaChatClientTest {
         BusinessException exception = assertThrows(
                 BusinessException.class, () -> client.chat("system", "user"));
         assertEquals(ErrorCode.AGENT_502_1, exception.getErrorCode());
+    }
+
+    // MockRestServiceServer는 실제 소켓 통신을 하지 않아 connect/read timeout 설정을 검증할 수 없다.
+    // read-timeout-ms보다 오래 응답을 지연하는 로컬 서버를 띄워 HcxRestClientConfig가 만든
+    // RestClient가 실제로 타임아웃을 걸고 AGENT_504_1로 변환하는지 확인한다.
+    @Test
+    void 응답이_read_timeout보다_늦으면_AGENT_504_1로_변환된다() throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/" + APP_TYPE + "/v3/chat-completions/" + MODEL, exchange -> {
+            try {
+                Thread.sleep(2_000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        try {
+            String baseUrl = "http://localhost:" + server.getAddress().getPort();
+            HcxApiProperties properties = new HcxApiProperties(
+                    true, baseUrl, API_KEY, MODEL, APP_TYPE, 3000, 200, 1024, 0.5, 0.8);
+            RestClient restClient = new HcxRestClientConfig().hcxRestClient(properties);
+            ClovaChatClient client = new ClovaChatClient(properties, restClient);
+
+            BusinessException exception = assertThrows(
+                    BusinessException.class, () -> client.chat("system", "user"));
+
+            assertEquals(ErrorCode.AGENT_504_1, exception.getErrorCode());
+        } finally {
+            server.stop(0);
+        }
     }
 
     private HcxApiProperties properties() {
