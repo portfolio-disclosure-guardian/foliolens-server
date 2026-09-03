@@ -2,6 +2,9 @@ package com.foliolens.backend.policy;
 
 import com.foliolens.backend.answer.AnswerOutcome;
 import com.foliolens.backend.calculation.CalculationVerdict;
+import com.foliolens.backend.question.plan.candidate.DateRangeCandidate;
+import com.foliolens.backend.question.plan.candidate.PlanTimeCandidate;
+import com.foliolens.backend.question.plan.candidate.QuestionPlanCandidate;
 import com.foliolens.backend.question.plan.confirmation.DateRange;
 import com.foliolens.backend.question.plan.confirmation.PlanTime;
 import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
@@ -13,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 // GOLD-FACILITY-001_C_APPROVAL_STEPS_1_TO_7.md의 1~7단계 승인 내용을 옮긴 fixture.
@@ -71,7 +75,7 @@ public final class GoldFacility001Fixture {
                         "회사가 비율을 허위로 공시했다는 단정",
                         "추가 확인 없이 회사의 고의나 오류를 확정"
                 ),
-                new GoldenCase(
+                List.of(new GoldenCase(
                         "GOLD-FACILITY-001",
                         "SK하이닉스가 2024년 4월 발표한 신규시설투자의 투자금액과 목적은 무엇이고, 자기자본 대비 비율은 맞는가?",
                         "SK하이닉스",
@@ -96,15 +100,24 @@ public final class GoldFacility001Fixture {
                                 + "기준으로 투자금액 ÷ 자기자본 × 100을 계산하면 약 9.8987%입니다. 이를 공시와 동일하게 "
                                 + "소수 둘째 자리로 반올림하면 9.90%이므로 공시된 자기자본 대비 비율과 일치합니다. 다만 "
                                 + "공시 원문은 투자금액과 투자기간이 진행 과정 및 경영환경에 따라 변경될 수 있다고 밝히고 "
-                                + "있습니다."
-                )
+                                + "있습니다.",
+                        List.of(
+                                "자기자본 분모 오추출 또는 연결·별도 기준 혼용",
+                                "목적 문구 왜곡",
+                                "계획금액을 실제 집행액으로 표현",
+                                "9.9%를 불일치로 판정",
+                                "원문 단위·근거 누락",
+                                "종료예정일을 실제 준공일로 표현",
+                                "외부 최신 재무값으로 공시 당시 비율을 대체"
+                        ),
+                        GoldenCaseApprovalStatus.C_REVIEW_PENDING
+                ))
         );
     }
 
     public static QuestionPlan questionPlan() {
-        GoldenCase goldenCase = policy().goldenCase();
-        LocalDate decisionDate = LocalDate.parse(
-                goldenCase.expectedNormalizedFacts().get("facility.decision_date"));
+        GoldenCase goldenCase = policy().goldenCases().getFirst();
+        LocalDate decisionDate = decisionDate(goldenCase);
         DateRange decisionMonth = new DateRange(
                 decisionDate.withDayOfMonth(1),
                 decisionDate.withDayOfMonth(decisionDate.lengthOfMonth()));
@@ -116,5 +129,27 @@ public final class GoldFacility001Fixture {
                 new PlanTime(decisionMonth, decisionMonth, decisionDate),
                 List.of(),
                 List.of());
+    }
+
+    // HcxPlanGenerator가 아직 없을 때(hcx.api.enabled=false) FakeHcxPlanGenerator가 돌려주는
+    // 검증 전 계획 후보. questionPlan()과 같은 날짜를 문자열로만 표현한다.
+    public static QuestionPlanCandidate questionPlanCandidate() {
+        GoldenCase goldenCase = policy().goldenCases().getFirst();
+        LocalDate decisionDate = decisionDate(goldenCase);
+        DateRangeCandidate decisionMonth = new DateRangeCandidate(
+                decisionDate.withDayOfMonth(1).toString(),
+                decisionDate.withDayOfMonth(decisionDate.lengthOfMonth()).toString());
+
+        return new QuestionPlanCandidate(
+                QUESTION_PLAN_SCHEMA_VERSION,
+                List.of(goldenCase.companyName()),
+                new PlanTimeCandidate(decisionMonth, decisionMonth, decisionDate.toString()),
+                Set.of(),
+                List.of(),
+                List.of());
+    }
+
+    private static LocalDate decisionDate(GoldenCase goldenCase) {
+        return LocalDate.parse(goldenCase.expectedNormalizedFacts().get("facility.decision_date"));
     }
 }

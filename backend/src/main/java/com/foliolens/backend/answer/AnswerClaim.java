@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.foliolens.backend.question.plan.toolinput.CalculationOperation;
 
-// 모든 입력 근거를 가져야 한다. evidenceIds는 AnswerResult.usedEvidences()의 documentId를 가리킨다.
+// 모든 입력 근거를 가져야 한다. evidenceIds는 RetrievedEvidence.evidenceId를 가리킨다.
 public record AnswerClaim(
         AnswerClaimType type,
         String text,

@@ -1,0 +1,32 @@
+spring:
+  config:
+    activate:
+      on-profile: evaluation
+
+# 평가 실행 중 데이터 적재·분석 배치가 우발적으로 시작되지 않게 고정한다.
+# 외부 연결은 HCX만 환경변수로 명시적으로 활성화할 수 있다.
+foliolens:
+  dataset:
+    import-companies-on-startup: false
+    import-disclosures-on-startup: false
+    import-documents-on-startup: false
+  profiling:
+    xml-structure:
+      enabled: false
+      batch:
+        enabled: false
+  validation:
+    xml-parsing:
+      batch:
+        enabled: false
+  parsing:
+    xml-persistence:
+      batch:
+        enabled: false
+  chunking:
+    batch:
+      enabled: false
+
+hcx:
+  api:
+    enabled: ${HCX_API_ENABLED:false}
