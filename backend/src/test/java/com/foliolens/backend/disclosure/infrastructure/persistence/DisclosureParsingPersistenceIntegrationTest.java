@@ -21,6 +21,11 @@ import com.foliolens.backend.disclosure.repository.DisclosureSectionRepository;
 import com.foliolens.backend.disclosure.service.DisclosureDocumentChunkingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat;
+import com.foliolens.backend.disclosure.infrastructure.chunking.batch.DisclosureChunkingBatchService;
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.io.TempDir;
 import com.foliolens.backend.disclosure.infrastructure.parsing.html.HtmlParserTestSupport;
 import com.foliolens.backend.disclosure.service.DisclosureDocumentParsingService;
@@ -111,6 +116,9 @@ class DisclosureParsingPersistenceIntegrationTest {
 
     @Autowired
     DisclosureDocumentParsingService parsingService;
+
+    @Autowired
+    DisclosureChunkingBatchService chunkingBatchService;
 
     @BeforeEach
     void setUp() {
@@ -420,6 +428,154 @@ class DisclosureParsingPersistenceIntegrationTest {
         assertThat(document.getParseStatus()).isEqualTo(DisclosureDocumentParseStatus.FAILED);
         assertThat(document.getParserName()).isEqualTo("DartHtmlDisclosureParser");
         assertThat(blockRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "facility-original.xml,신규시설투자등,false",
+            "facility-correction.xml,신규시설투자등,true",
+            "contract-original.xml,단일판매공급계약체결,false",
+            "contract-correction.xml,단일판매공급계약체결,true",
+            "contract-cancellation.xml,단일판매공급계약해지,false",
+            "major-management.xml,투자판단관련주요경영사항,false"
+    })
+    void htmlPilotStoresChunksAndSourcesAndSkipsCompletedDocuments(
+            String fixture, String subtype, boolean correction, @TempDir Path directory) throws Exception {
+        useHtmlFixture();
+        jdbcTemplate.update("UPDATE disclosures SET raw_subtype=?, correction=? WHERE id=?",
+                subtype, correction, DISCLOSURE_ID);
+        Path source = directory.resolve(FILE_NAME);
+        Files.copy(HtmlParserTestSupport.fixture(fixture), source);
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        var result = chunkingBatchService.processNextBatch(5, DisclosureDocumentContentFormat.HTML, subtype);
+        assertThat(result.totalCount()).isEqualTo(1);
+        assertThat(result.failedCount()).isZero();
+        assertThat(result.savedChunkCount()).isPositive();
+        assertThat(result.savedSourceCount()).isPositive();
+        var document = documentRepository.findById(DOCUMENT_ID).orElseThrow();
+        assertThat(document.getParseStatus()).isEqualTo(DisclosureDocumentParseStatus.COMPLETED);
+        assertThat(document.getChunkStatus()).isEqualTo(DisclosureDocumentChunkStatus.COMPLETED);
+        assertThat(document.getChunkGeneratorName()).isEqualTo("DisclosureChunkGenerator");
+        assertThat(document.getChunkGeneratorVersion()).isEqualTo("disclosure-chunk-v2");
+        assertThat(document.getChunkedAt()).isNotNull();
+        assertThat(chunkRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isEqualTo(result.savedChunkCount());
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM disclosure_chunk_sources s
+                JOIN disclosure_chunks c ON c.id=s.disclosure_chunk_id
+                WHERE c.disclosure_document_id=?
+                """, Long.class, DOCUMENT_ID)).isEqualTo(result.savedSourceCount());
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM disclosure_chunk_sources s
+                JOIN disclosure_chunks c ON c.id=s.disclosure_chunk_id
+                JOIN disclosure_content_blocks b ON b.id=s.content_block_id
+                WHERE c.disclosure_document_id=? AND (
+                    b.disclosure_document_id<>c.disclosure_document_id
+                    OR b.section_id IS DISTINCT FROM c.section_id
+                    OR s.source_line_start<b.source_line_start
+                    OR s.source_line_end>b.source_line_end)
+                """, Integer.class, DOCUMENT_ID)).isZero();
+        assertThat(chunkingBatchService.processNextBatch(5, DisclosureDocumentContentFormat.HTML, subtype)
+                .totalCount()).isZero();
+        // 재실행이 완료 문서를 건드리지 않아 건수가 그대로 유지된다.
+        assertThat(chunkRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isEqualTo(result.savedChunkCount());
+    }
+
+    @Test
+    void htmlTargetQueryFiltersSubtypeFormatStatusAndViewer() {
+        useHtmlFixture();
+        jdbcTemplate.update("""
+                UPDATE disclosure_documents SET parse_status='COMPLETED', parser_name='test',
+                    parser_version='1', parsed_at=CURRENT_TIMESTAMP WHERE id=?
+                """, DOCUMENT_ID);
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.HTML,
+                "신규시설투자등", PageRequest.of(0, 5)).getContent()).hasSize(1);
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.HTML,
+                null, PageRequest.of(0, 5)).getContent()).hasSize(1);
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.HTML,
+                "단일판매공급계약해지", PageRequest.of(0, 5)).getContent()).isEmpty();
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.DART_XML,
+                null, PageRequest.of(0, 5)).getContent()).isEmpty();
+
+        jdbcTemplate.update("""
+                UPDATE disclosure_documents SET parse_status='PENDING', parser_name=NULL,
+                    parser_version=NULL, parsed_at=NULL WHERE id=?
+                """, DOCUMENT_ID);
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.HTML,
+                null, PageRequest.of(0, 5)).getContent()).isEmpty();
+        jdbcTemplate.update("""
+                UPDATE disclosure_documents SET parse_status='FAILED', parser_name='test',
+                    parser_version='1', parsed_at=CURRENT_TIMESTAMP, parse_error_message='test failure' WHERE id=?
+                """, DOCUMENT_ID);
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.HTML,
+                null, PageRequest.of(0, 5)).getContent()).isEmpty();
+        jdbcTemplate.update("""
+                UPDATE disclosure_documents SET parse_status='COMPLETED', parse_error_message=NULL, chunk_status='FAILED',
+                    chunk_generator_name='test', chunk_generator_version='test-v1',
+                    chunk_error_message='test failure', chunked_at=CURRENT_TIMESTAMP WHERE id=?
+                """, DOCUMENT_ID);
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.HTML,
+                null, PageRequest.of(0, 5)).getContent()).isEmpty();
+        jdbcTemplate.update("""
+                UPDATE disclosure_documents SET chunk_status='PENDING', chunk_generator_name=NULL,
+                    chunk_generator_version=NULL, chunk_error_message=NULL, chunked_at=NULL WHERE id=?
+                """, DOCUMENT_ID);
+        jdbcTemplate.update("""
+                UPDATE disclosures SET source_group='periodic', category='PERIODIC',
+                    source_doc_id='periodic_' || receipt_no, base_year=2024, base_month=12,
+                    raw_subtype='annual' WHERE id=?
+                """, DISCLOSURE_ID);
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.HTML,
+                null, PageRequest.of(0, 5)).getContent()).isEmpty();
+        jdbcTemplate.update("UPDATE disclosure_documents SET content_format='DART_XML' WHERE id=?", DOCUMENT_ID);
+        assertThat(documentRepository.findChunkingTargets(DisclosureDocumentContentFormat.DART_XML,
+                null, PageRequest.of(0, 5)).getContent()).hasSize(1);
+    }
+
+    @Test
+    void filteringSymbolTableKeepsRawBlocksAndStoresOnlyUsefulChunkSources(@TempDir Path directory) throws Exception {
+        useHtmlFixture();
+        Path source = directory.resolve(FILE_NAME);
+        Files.writeString(source, """
+                <html><body><div class="xforms"><h1>신규 시설투자 등</h1>
+                <table><tr><td>-</td></tr></table>
+                <table><tr><td>투자금액(원)</td><td>0</td></tr><tr><td>비고</td><td>-</td></tr></table>
+                </div></body></html>
+                """);
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        var result = chunkingService.generateAndStore(DOCUMENT_ID);
+        assertThat(result.savedChunkCount()).isEqualTo(1);
+        assertThat(result.savedSourceCount()).isEqualTo(1);
+        assertThat(blockRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForObject("SELECT body_text FROM disclosure_chunks WHERE disclosure_document_id=?",
+                String.class, DOCUMENT_ID)).contains("투자금액(원) | 0", "비고 | -");
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM disclosure_chunk_sources s
+                JOIN disclosure_content_blocks b ON b.id=s.content_block_id
+                WHERE b.disclosure_document_id=? AND b.structured_content->'table'->'rows'->0->'cells'->0->>'text'='-'
+                """, Integer.class, DOCUMENT_ID)).isZero();
+        var repeated = chunkingService.generateAndStore(DOCUMENT_ID);
+        assertThat(repeated.deletedChunkCount()).isEqualTo(1);
+        assertThat(repeated.savedChunkCount()).isEqualTo(1);
+        assertThat(repeated.savedSourceCount()).isEqualTo(1);
+    }
+
+    @Test
+    void allSymbolDocumentCompletesWithZeroChunksAndPreservesParsedTable(@TempDir Path directory) throws Exception {
+        useHtmlFixture();
+        Path source = directory.resolve(FILE_NAME);
+        Files.writeString(source, """
+                <html><body><div class="xforms"><h1>신규 시설투자 등</h1>
+                <table><tr><td>-</td></tr></table>
+                </div></body></html>
+                """);
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        var result = chunkingService.generateAndStore(DOCUMENT_ID);
+        assertThat(result.savedChunkCount()).isZero();
+        assertThat(result.savedSourceCount()).isZero();
+        assertThat(blockRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isEqualTo(1);
+        var document = documentRepository.findById(DOCUMENT_ID).orElseThrow();
+        assertThat(document.getChunkStatus()).isEqualTo(DisclosureDocumentChunkStatus.COMPLETED);
+        assertThat(document.getChunkGeneratorVersion()).isEqualTo("disclosure-chunk-v2");
     }
 
     private void useHtmlFixture() {

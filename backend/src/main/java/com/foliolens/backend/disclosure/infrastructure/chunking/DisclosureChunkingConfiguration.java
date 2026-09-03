@@ -8,6 +8,6 @@ public class DisclosureChunkingConfiguration {
 
     @Bean
     public DisclosureChunkingPolicy disclosureChunkingPolicy() {
-        return DisclosureChunkingPolicy.dartXmlV3();
+        return DisclosureChunkingPolicy.disclosureV2();
     }
 }

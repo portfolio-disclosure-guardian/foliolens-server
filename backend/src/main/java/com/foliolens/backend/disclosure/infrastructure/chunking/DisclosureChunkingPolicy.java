@@ -9,6 +9,22 @@ public record DisclosureChunkingPolicy(
         ChunkSizePolicy table
 ) {
 
+    /** XML v3의 분할 규칙을 유지하면서 HTML에도 사용하는 공통 정책. */
+    public static DisclosureChunkingPolicy disclosureV1() {
+        DisclosureChunkingPolicy legacy = dartXmlV3();
+        return new DisclosureChunkingPolicy(
+                "DisclosureChunkGenerator", "disclosure-chunk-v1", legacy.text(), legacy.table()
+        );
+    }
+
+    /** 공통 v1의 분할 규칙 + 기호·공백뿐인 최종 청크 제외. */
+    public static DisclosureChunkingPolicy disclosureV2() {
+        DisclosureChunkingPolicy previous = disclosureV1();
+        return new DisclosureChunkingPolicy(
+                "DisclosureChunkGenerator", "disclosure-chunk-v2", previous.text(), previous.table()
+        );
+    }
+
     public static DisclosureChunkingPolicy dartXmlV1() {
         return dartXmlPolicy("dart-xml-chunk-v1");
     }

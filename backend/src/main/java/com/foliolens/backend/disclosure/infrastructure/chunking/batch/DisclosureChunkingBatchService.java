@@ -1,9 +1,7 @@
 package com.foliolens.backend.disclosure.infrastructure.chunking.batch;
 
 import com.foliolens.backend.disclosure.domain.DisclosureDocument;
-import com.foliolens.backend.disclosure.domain.DisclosureDocumentChunkStatus;
 import com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat;
-import com.foliolens.backend.disclosure.domain.DisclosureDocumentParseStatus;
 import com.foliolens.backend.disclosure.infrastructure.persistence.DisclosureChunkPersistenceResult;
 import com.foliolens.backend.disclosure.repository.DisclosureDocumentRepository;
 import com.foliolens.backend.disclosure.service.DisclosureDocumentChunkingService;
@@ -40,24 +38,34 @@ public class DisclosureChunkingBatchService {
     }
 
     /**
-     * 파싱이 완료되고 청킹 상태가 PENDING인 DART XML 문서를
+     * 기존 호출은 DART XML 전체 유형을 대상으로 한다.
+     */
+    public DisclosureChunkingBatchResult processNextBatch(int batchSize) {
+        return processNextBatch(batchSize, DisclosureDocumentContentFormat.DART_XML, null);
+    }
+
+    /**
+     * 파싱이 완료되고 청킹 상태가 PENDING인 선택 형식·유형의 문서를
      * ID 순서로 제한된 수만큼 처리한다.
      *
      * 처리된 문서는 COMPLETED 또는 FAILED가 되므로 다음 호출에서도
      * 페이지를 이동하지 않고 항상 첫 페이지를 조회한다.
      */
     public DisclosureChunkingBatchResult processNextBatch(
-            int batchSize
+            int batchSize,
+            DisclosureDocumentContentFormat contentFormat,
+            String rawSubtype
     ) {
         validateBatchSize(batchSize);
+        validateContentFormat(contentFormat);
+        String subtype = normalizeSubtype(rawSubtype);
 
         Instant startedAt = Instant.now();
 
         List<DisclosureDocument> documents = documentRepository
-                .findAllByContentFormatAndParseStatusAndChunkStatusOrderByIdAsc(
-                        DisclosureDocumentContentFormat.DART_XML,
-                        DisclosureDocumentParseStatus.COMPLETED,
-                        DisclosureDocumentChunkStatus.PENDING,
+                .findChunkingTargets(
+                        contentFormat,
+                        subtype,
                         PageRequest.of(0, batchSize)
                 )
                 .getContent();
@@ -74,6 +82,18 @@ public class DisclosureChunkingBatchService {
                 Instant.now(),
                 rows
         );
+    }
+
+    static DisclosureDocumentContentFormat validateContentFormat(DisclosureDocumentContentFormat format) {
+        if (format != DisclosureDocumentContentFormat.DART_XML
+                && format != DisclosureDocumentContentFormat.HTML) {
+            throw new IllegalArgumentException("청킹 contentFormat은 DART_XML 또는 HTML이어야 합니다.");
+        }
+        return format;
+    }
+
+    static String normalizeSubtype(String rawSubtype) {
+        return rawSubtype == null || rawSubtype.isBlank() ? null : rawSubtype.strip();
     }
 
     private DisclosureChunkingBatchRow processDocument(

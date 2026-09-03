@@ -3,6 +3,8 @@ package com.foliolens.backend.disclosure.infrastructure.chunking;
 import com.foliolens.backend.disclosure.domain.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.UUID;
@@ -464,6 +466,72 @@ class DisclosureChunkGeneratorTest {
                         List.of(duplicateSequenceBlock)
                 )
         );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-", "—", "–", "•", "…", "| / · %", "￥ € $", "() []", "→ ↔", "-\u00a0\u200b"})
+    void removesSymbolOnlyBodyDespiteMeaningfulSectionAndSearchContext(String body) {
+        var section = section(1, 1, "정정신고(보고)", null, document);
+        var table = block(2, DisclosureContentBlockType.TABLE, null, section, document);
+        var draft = tableDraft(table, section, body);
+        when(tableChunkGenerator.generate(eq(DOCUMENT_ID), eq(draft.sectionId()), anyString(), anyList(), same(table)))
+                .thenReturn(List.of(draft));
+
+        assertEquals(List.of(), generator.generateChunks(DOCUMENT_ID, List.of(section), List.of(table)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "(1,000)", "0.00%", "N/A", "해당 없음", "①", "Ⅳ", "²", "ㄱ", "株", "매출 | -"})
+    void keepsLettersAndAllUnicodeNumberCategories(String body) {
+        var section = section(1, 1, "본문", null, document);
+        var table = block(2, DisclosureContentBlockType.TABLE, null, section, document);
+        var draft = tableDraft(table, section, body);
+        when(tableChunkGenerator.generate(eq(DOCUMENT_ID), eq(draft.sectionId()), anyString(), anyList(), same(table)))
+                .thenReturn(List.of(draft));
+
+        var result = generator.generateChunks(DOCUMENT_ID, List.of(section), List.of(table));
+        assertEquals(1, result.size());
+        assertEquals(body, result.getFirst().bodyText());
+    }
+
+    @Test
+    void removesOnlyWholeSymbolChunksAndRenumbersWithoutChangingRemainingSources() {
+        var section = section(1, 1, "본문", null, document);
+        var before = block(2, DisclosureContentBlockType.PARAGRAPH, "- 기말주식수 0", section, document);
+        var symbolTable = block(3, DisclosureContentBlockType.TABLE, null, section, document);
+        var symbolText = block(4, DisclosureContentBlockType.PARAGRAPH, "-", section, document);
+        var table = block(5, DisclosureContentBlockType.TABLE, null, section, document);
+        var after = block(6, DisclosureContentBlockType.PARAGRAPH, "마지막 본문", section, document);
+        var keptDraft = tableDraft(table, section, "영업이익 | -1,000\n비고 | -");
+        var symbolDraft = tableDraft(symbolTable, section, "-");
+        when(tableChunkGenerator.generate(eq(DOCUMENT_ID), eq(keptDraft.sectionId()), anyString(), anyList(), same(symbolTable)))
+                .thenReturn(List.of(symbolDraft));
+        when(tableChunkGenerator.generate(eq(DOCUMENT_ID), eq(keptDraft.sectionId()), anyString(), anyList(), same(table)))
+                .thenReturn(List.of(keptDraft));
+
+        var result = generator.generateChunks(DOCUMENT_ID, List.of(section),
+                List.of(after, table, symbolText, symbolTable, before));
+        assertEquals(List.of(1, 2, 3), result.stream().map(GeneratedDisclosureChunk::chunkSequenceNo).toList());
+        assertEquals(List.of("- 기말주식수 0", "영업이익 | -1,000\n비고 | -", "마지막 본문"),
+                result.stream().map(GeneratedDisclosureChunk::bodyText).toList());
+        assertEquals(keptDraft.searchText(), result.get(1).searchText());
+        assertEquals(keptDraft.sources(), result.get(1).sources());
+        assertEquals(List.of(before.getId(), table.getId(), after.getId()), result.stream()
+                .flatMap(c -> c.sources().stream()).map(GeneratedChunkSource::contentBlockId).toList());
+    }
+
+    @Test
+    void returnsNoChunksForSymbolOnlyTextWithoutThrowing() {
+        var section = section(1, 1, "제목은 검색 가능한 한글", null, document);
+        var paragraph = block(2, DisclosureContentBlockType.PARAGRAPH, "- / •", section, document);
+        assertEquals(List.of(), generator.generateChunks(DOCUMENT_ID, List.of(section), List.of(paragraph)));
+    }
+
+    private GeneratedChunkDraft tableDraft(DisclosureContentBlock table, DisclosureSection section, String body) {
+        return new GeneratedChunkDraft(DOCUMENT_ID, section.getId(), section.getTitle(), DisclosureChunkType.TABLE,
+                table.getSequenceNo(), 0, body, "[" + section.getTitle() + "]\n" + body,
+                List.of(GeneratedChunkSource.tableRows(table.getId(), table.getSequenceNo(),
+                        table.getSourceLineStart(), table.getSourceLineEnd(), null, 0, 0)));
     }
 
     private DisclosureDocument document(UUID id) {

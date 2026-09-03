@@ -132,7 +132,7 @@ cd backend
 
 ## 남은 범위
 
-- HTML 청킹 배치의 대상 조회 확장 및 검색·Fact 추출 end-to-end 검증.
+- HTML 청킹의 실 DB 소규모 검증 및 검색·Fact 추출 end-to-end 검증. 청킹 배치 대상 조회 확장은 아래 2026-09-03 절에 반영했다.
 - 정정 링크와 기업·일자·서류명을 대조해 실제 사건 관계를 확정하는 이력 서비스.
 - 시설투자 외 거래소 HTML 유형 검증, PDF/뷰어 별도 지원.
 - HTML 중첩 표의 parentContext는 현재 별도로 생성하지 않는다. 43건에는 중첩 표가 없으며, 중첩 표가 있는 HTML로 확대하기 전 정책 보완이 필요하다.
@@ -153,3 +153,99 @@ cd backend
 ```
 
 계약체결 page 0의 동일 50건을 Runner로 다시 검사할 때는 기존 검증용 `.env`를 유지하고 `docker compose up -d --build app`으로 변경된 코드를 빌드한다. HTML 적재 설정은 검증 완료 전까지 `false`로 유지한다.
+
+## 2026-09-03: HTML 소규모 청킹 실행
+
+### 변경 범위
+
+- 기존 청킹 배치에 `content-format`, 선택적인 `raw-subtype` 필터를 추가했다. 기본값은 `DART_XML`, 전체 유형으로 기존 XML 대상 선택을 유지한다.
+- HTML은 거래소(`exchange`) 공시만 선택한다. 파싱 `COMPLETED` + 청킹 `PENDING` 문서를 ID 순서로 처리하고, 다음 배치도 항상 첫 페이지를 조회한다. 완료·실패 문서는 자동 재처리하지 않는다.
+- 저장된 `disclosure_sections`, `disclosure_content_blocks`를 기존 TEXT/TABLE 생성기로 읽는다. 원문 재파싱, 새 Flyway, 기존 청크 삭제·상태 초기화는 필요 없다.
+- 공통 생성기는 `DisclosureChunkGenerator`이다. 최초 공통 버전은 `disclosure-chunk-v1`이고, 아래 기호 전용 청크 제외 규칙부터 `disclosure-chunk-v2`를 사용한다. XML v3의 분할 크기는 유지한다. 앞으로 생성하는 XML/HTML 모두 공통 정책을 사용하며, 이미 저장된 문서의 버전/청크는 자동 변경하지 않는다.
+- 생성기, 저장 서비스, 실패 기록기가 같은 정책 Bean을 사용한다.
+
+### 먼저 시설투자 5건
+
+아래는 실제 DB에 저장하는 실행 설정이다. 이번 코드 수정에서 사용자 `.env`나 운영 DB는 변경하지 않았다. 다른 적재·구조 조사·검증·특정 문서 청킹 Runner는 끈다.
+
+```dotenv
+FOLIOLENS_VALIDATE_HTML_PARSING_ON_STARTUP=false
+FOLIOLENS_PERSIST_HTML_PARSING_ON_STARTUP=false
+FOLIOLENS_PERSIST_XML_PARSING_ON_STARTUP=false
+
+FOLIOLENS_CHUNKING_ON_STARTUP=true
+FOLIOLENS_CHUNKING_CONTENT_FORMAT=HTML
+FOLIOLENS_CHUNKING_RAW_SUBTYPE=신규시설투자등
+FOLIOLENS_CHUNKING_BATCH_SIZE=1
+FOLIOLENS_CHUNKING_MAX_DOCUMENTS=5
+FOLIOLENS_CHUNKING_MAX_FAILURES=1
+```
+
+한 건씩 최대 5건을 처리한다. 실패 임계치는 배치가 끝날 때 확인하므로 초기 시험에서는 `batch-size=1`로 두면 첫 실패 후 중단한다. 일반·정정 구분으로 추출하는 설정은 아니며, 실 DB 대상은 ID 순서다. 두 형태의 대표 fixture는 자동 테스트에서 따로 검증한다.
+
+저장소 루트에서:
+
+```powershell
+docker compose up -d --build --force-recreate app
+docker compose logs -f app
+```
+
+- 시작 로그에서 `contentFormat=HTML, rawSubtype=신규시설투자등`을 확인한다.
+- 적격 문서가 5건 이상이고 실패가 없다면 종료 로그는 `totalCount=5, successCount=5`이다.
+- 결과는 CSV가 아니라 `disclosure_chunks`, `disclosure_chunk_sources`에 저장된다.
+- 실행 완료 후 `FOLIOLENS_CHUNKING_ON_STARTUP=false`로 되돌린다. `.env` 변경은 컨테이너 재생성 시 적용된다. 켜둔 채 재생성하면 다음 PENDING 문서를 처리한다.
+
+### DB 확인
+
+```sql
+SELECT d.raw_subtype, dd.parse_status, dd.chunk_status, COUNT(*)
+FROM disclosure_documents dd
+JOIN disclosures d ON d.id = dd.disclosure_id
+WHERE dd.content_format = 'HTML' AND d.source_group = 'exchange'
+GROUP BY d.raw_subtype, dd.parse_status, dd.chunk_status
+ORDER BY d.raw_subtype, dd.chunk_status;
+
+SELECT dd.id, dd.chunk_generator_name, dd.chunk_generator_version,
+       dd.chunk_error_message, dd.chunked_at, COUNT(c.id) AS chunk_count
+FROM disclosure_documents dd
+JOIN disclosures d ON d.id = dd.disclosure_id
+LEFT JOIN disclosure_chunks c ON c.disclosure_document_id = dd.id
+WHERE dd.content_format = 'HTML' AND d.source_group = 'exchange'
+  AND dd.chunk_status <> 'PENDING'
+GROUP BY dd.id
+ORDER BY dd.chunked_at DESC;
+```
+
+확인할 사항: 비어 있지 않은 청크, 금액·단위·항목명 보존, 정정/본문의 섹션 경계, 긴 셀의 분할, 원본 블록 및 표 행 범위 출처. `COMPLETED`만으로 답변 검색 품질까지 검증된 것은 아니다.
+
+### 다음 유형과 전체 확대
+
+시설투자 5건 확인 후 같은 유형의 나머지를 처리한다. 계약체결·계약해지·주요경영사항은 `FOLIOLENS_CHUNKING_RAW_SUBTYPE`을 해당 원문 유형명으로 바꿔 각각 5건부터 확인한다. 마지막에 모든 유형을 처리하려면 이 값을 빈 문자열로 둔다. `max-documents=0`은 무제한이므로 초기 검증에서는 사용하지 않는다.
+
+### 자동 테스트
+
+- `HtmlDisclosureChunkingTest`: 대표 HTML fixture 6종, 정정/본문 분리, 금액·단위·문단, 긴 셀의 내용 보존, 표 행/블록 출처, JSONB→청킹→엔티티 매핑.
+- `DisclosureParsingPersistenceIntegrationTest`: 별도 PostgreSQL에서 대표 HTML 6종의 파싱→청킹 배치→청크·출처 저장→완료 상태와 재조회 제외, 형식·유형·상태·뷰어 필터.
+- 기존 청킹 Service/Runner 회귀 테스트: 기본 XML, HTML 선택, 최대 처리 수, 실패 임계치, 잘못된 형식, opt-in 설정.
+- 데이터셋 옵션을 지정하면 유형별 실제 원문 5건씩(총 20건)을 메모리에서만 청킹 검증한다. 이는 운영 DB 적재가 아니다.
+
+```powershell
+cd backend
+.\gradlew.bat test --tests "*HtmlDisclosureChunkingTest" --tests "*DisclosureChunkingBatch*Test" --tests "*DisclosureParsingPersistenceIntegrationTest" "-PcontestDatasetRoot=C:/study/portfolio-disclosure-guardian/foliolens-data"
+```
+
+확인 결과(2026-09-03): 데이터셋 옵션을 지정한 전체 `test` 실행에서 283개 테스트가 모두 통과했다(실패 0, 오류 0, 건너뜀 0). 대표 원문 20건의 메모리 청킹 결과는 시설투자 11개, 계약체결 11개, 계약해지 5개, 주요경영사항 12개 청크다. 대표 fixture 6종의 청크·출처 DB 저장은 Testcontainers의 독립 PostgreSQL에서 검증했으며 운영 DB 적재 결과가 아니다.
+
+### 공통 v2: 기호 전용 청크 제외
+
+- 적용 위치: `DisclosureChunkGenerator`에서 TEXT/TABLE draft 수집 후, 최종 청크 순번을 부여하기 전.
+- 판단 대상: `bodyText` 전체. `searchText`의 섹션명이나 머리글은 판단에 사용하지 않는다.
+- Unicode 문자(`\p{L}`) 또는 숫자(`\p{N}`)가 하나도 없으면 제외한다. `-`, `—`, `…`, `| / · %`처럼 기호·공백뿐인 청크가 대상이다.
+- `0`, `-1,000`, `0.00%`, `N/A`, `해당 없음`, `①`, `Ⅳ`, `매출 | -`는 보존한다.
+- 일반 표 안의 `-` 셀이나 본문 일부를 제거하지 않는다. 유지하는 청크의 본문·검색문·출처는 그대로 두고, 최종 청크 순번만 1부터 빈 번호 없이 부여한다.
+- 파싱된 섹션·블록·TABLE JSONB는 삭제하거나 수정하지 않는다. 기호 전용 표 블록은 원문 근거로 남지만 해당 청크·출처는 생성하지 않는다. 따라서 출처 검증에서 이 의도적 제외를 표 행 누락 오류로 계산하지 않는다.
+- 모든 청크가 제외되면 기존 저장 서비스의 빈 결과 처리에 따라 청크 0개로 `COMPLETED`가 된다. 원본 파싱 결과는 남는다.
+- 새 생성기 버전은 `disclosure-chunk-v2`이며, 파싱 버전은 바꾸지 않는다.
+- 기존 v1 청크는 자동 삭제되지 않는다. 이미 청킹 완료된 문서는 일반 PENDING 배치에서 제외되므로, 기존 결과에도 적용하려면 별도로 해당 문서를 재청킹해야 한다. 재파싱은 필요 없다.
+
+v2 검증 결과: 전체 311개 테스트 통과(실패·오류·건너뜀 0). 직전 실 DB 소규모 적재에 사용한 시설투자 5건의 원문을 메모리에서 재검증했을 때 파싱 블록 14개는 유지됐고, 청크는 14개에서 11개로 줄었다. 기호 전용 3개만 제외됐으며 문자·숫자를 포함하는 셀 텍스트와 남은 표 행 출처는 보존됐다. 실제 운영 DB의 기존 14개 청크는 변경하지 않았다.
