@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.foliolens.backend.answer.AnswerResult;
 import com.foliolens.backend.evaluation.response.EvaluationAnswerResponse;
+import com.foliolens.backend.global.web.RequestCorrelationFilter;
 import com.foliolens.backend.orchestration.OrchestrationAnswerService;
 import com.foliolens.backend.question.AnswerQuestionCommand;
 import com.foliolens.backend.question.RequestChannel;
@@ -22,8 +23,11 @@ public class EvaluationAnswerController {
     @GetMapping("/answer")
     public ResponseEntity<EvaluationAnswerResponse> getAnswer(@RequestParam("question_id") @NotBlank String questionId,
             @RequestParam("question") @NotBlank String questionText) {
-        // RequestChannel 직접 기입 수정 必
-        var command = new AnswerQuestionCommand(questionId, questionText, RequestChannel.EVALUATION);
+        var command = new AnswerQuestionCommand(
+                questionId,
+                questionText,
+                RequestChannel.EVALUATION,
+                RequestCorrelationFilter.currentRequestId());
         AnswerResult result = disclosureAnswerService.getAnswer(command);
         return ResponseEntity.ok(EvaluationAnswerResponse.from(result));
     }

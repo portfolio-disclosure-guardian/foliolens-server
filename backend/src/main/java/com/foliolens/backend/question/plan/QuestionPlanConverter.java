@@ -23,6 +23,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -31,6 +32,7 @@ import java.util.Set;
 
 @Component
 public class QuestionPlanConverter {
+    private static final int MAX_ADDITIONAL_SEARCH_ATTEMPTS = 1;
     private final CompanyRepository companyRepository;
     private final ObjectMapper objectMapper;
     private final int searchDisclosuresLimitMin;
@@ -48,10 +50,11 @@ public class QuestionPlanConverter {
         this.searchDisclosuresLimitMax = searchDisclosuresLimitMax;
     }
 
-    QuestionPlan candidateToConfirmation(QuestionPlanCandidate candidate) {
+    public QuestionPlan candidateToConfirmation(QuestionPlanCandidate candidate) {
         validateStepReferences(candidate.steps());
         List<PlanStep> steps = candidate.steps().stream().map(this::convertToPlanStep).toList();
         validateFromBindings(steps);
+        validateSearchAttempts(steps);
 
         QuestionPlan questionPlan = new QuestionPlan(
                 candidate.schemaVersion(),
@@ -61,6 +64,32 @@ public class QuestionPlanConverter {
                 candidate.ambiguities()
         );
         return questionPlan;
+    }
+
+    private void validateSearchAttempts(List<PlanStep> steps) {
+        Map<ToolType, Set<ToolInput>> inputsByTool = new EnumMap<>(ToolType.class);
+        int additionalSearchAttempts = 0;
+        for (PlanStep step : steps) {
+            if (step.toolType() != ToolType.SEARCH_DISCLOSURES
+                    && step.toolType() != ToolType.SEARCH_EVIDENCE) {
+                continue;
+            }
+
+            Set<ToolInput> attemptedInputs = inputsByTool.computeIfAbsent(
+                    step.toolType(),
+                    ignored -> new HashSet<>());
+            if (!attemptedInputs.add(step.input())) {
+                throw new BusinessException(
+                        ErrorCode.QUESTION_400_4,
+                        "동일 입력의 검색을 반복할 수 없습니다: " + step.toolType());
+            }
+            if (attemptedInputs.size() > 1
+                    && ++additionalSearchAttempts > MAX_ADDITIONAL_SEARCH_ATTEMPTS) {
+                throw new BusinessException(
+                        ErrorCode.QUESTION_400_4,
+                        "조건을 바꾼 추가 검색은 전체 계획에서 1회만 허용됩니다.");
+            }
+        }
     }
 
     // PLAN_STEP_INPUT_CONTRACT.md 6절 4번: stepId 중복, 자기 참조, 존재하지 않는 참조, 순환 의존성 거부.
@@ -103,6 +132,13 @@ public class QuestionPlanConverter {
         for (PlanStep step : steps) {
             if (step.input() instanceof LookupFactsInput lookupFactsInput) {
                 validateFromBinding(step, lookupFactsInput.disclosureIdsFrom(), ToolType.SEARCH_DISCLOSURES, stepsById);
+            } else if (step.input() instanceof SearchEvidenceInput searchEvidenceInput) {
+                validateFromBinding(
+                        step,
+                        searchEvidenceInput.disclosureIdsFrom(),
+                        ToolType.SEARCH_DISCLOSURES,
+                        stepsById
+                );
             } else if (step.input() instanceof CalculateInput calculateInput) {
                 validateFromBinding(step, calculateInput.factsFrom(), ToolType.LOOKUP_FACTS, stepsById);
             }
