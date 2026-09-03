@@ -6,15 +6,19 @@ import com.foliolens.backend.question.entity.QuestionRun;
 import com.foliolens.backend.question.repository.QuestionRunRepository;
 import com.foliolens.backend.global.exception.ErrorCode;
 import com.foliolens.backend.question.RequestChannel;
+import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
 
 import lombok.RequiredArgsConstructor;
 
 import java.util.UUID;
 
+import tools.jackson.databind.ObjectMapper;
+
 @Service
 @RequiredArgsConstructor
 public class QuestionRunService {
     private final QuestionRunRepository questionRunRepository;
+    private final ObjectMapper objectMapper;
 
     public QuestionRun createQuestionRun(
             String requestId,
@@ -33,6 +37,13 @@ public class QuestionRunService {
 
     public QuestionRun startQuestionRun(QuestionRun questionRun) {
         questionRun.start();
+        return questionRunRepository.save(questionRun);
+    }
+
+    public QuestionRun recordQuestionPlan(
+            QuestionRun questionRun,
+            QuestionPlan questionPlan) {
+        questionRun.recordQueryPlan(objectMapper.valueToTree(questionPlan));
         return questionRunRepository.save(questionRun);
     }
 

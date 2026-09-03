@@ -2,6 +2,10 @@ package com.foliolens.backend.orchestration;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,20 +24,28 @@ import com.foliolens.backend.calculation.CalculationResult;
 import com.foliolens.backend.calculation.ComparisonBasis;
 import com.foliolens.backend.calculation.DisclosureCalculator;
 import com.foliolens.backend.policy.AnswerPolicy;
-import com.foliolens.backend.policy.GoldFacility001Fixture;
 import com.foliolens.backend.policy.GoldenCase;
 import com.foliolens.backend.policy.GoldenCaseApprovalStatus;
 import com.foliolens.backend.global.exception.BusinessException;
 import com.foliolens.backend.global.exception.ErrorCode;
+import com.foliolens.backend.global.web.RequestCorrelationFilter;
 import com.foliolens.backend.question.AnswerQuestionCommand;
 import com.foliolens.backend.question.entity.QuestionRun;
+import com.foliolens.backend.question.plan.HcxPlanGenerator;
+import com.foliolens.backend.question.plan.QuestionPlanConverter;
+import com.foliolens.backend.question.plan.candidate.QuestionPlanCandidate;
+import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
 import com.foliolens.backend.question.service.QuestionRunService;
 import com.foliolens.backend.retrieval.DisclosureRetriever;
 import com.foliolens.backend.retrieval.RetrievalResult;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class OrchestrationAnswerService {
     private static final ComparisonBasis GOLD_COMPARISON_BASIS = new ComparisonBasis(true, true, true, true);
+    private static final int MAX_ANSWER_GENERATION_ATTEMPTS = 2;
 
     private final QuestionRunService questionRunService;
     private final DisclosureRetriever disclosureRetriever;
@@ -41,9 +53,14 @@ public class OrchestrationAnswerService {
     private final AnswerOutcomeJudge answerOutcomeJudge;
     private final AnswerReferenceValidator answerReferenceValidator;
     private final AnswerSafetyValidator answerSafetyValidator;
+    private final HcxPlanGenerator hcxPlanGenerator;
+    private final QuestionPlanConverter questionPlanConverter;
     private final HcxAnswerGenerator hcxAnswerGenerator;
     private final List<AnswerPolicy> answerPolicies;
     private final boolean requireApprovedGoldenCase;
+    private final long answerDeadlineMillis;
+    private final String datasetVersion;
+    private final String modelVersion;
 
     public OrchestrationAnswerService(
             QuestionRunService questionRunService,
@@ -52,22 +69,39 @@ public class OrchestrationAnswerService {
             AnswerOutcomeJudge answerOutcomeJudge,
             AnswerReferenceValidator answerReferenceValidator,
             AnswerSafetyValidator answerSafetyValidator,
+            HcxPlanGenerator hcxPlanGenerator,
+            QuestionPlanConverter questionPlanConverter,
             HcxAnswerGenerator hcxAnswerGenerator,
             List<AnswerPolicy> answerPolicies,
             @Value("${foliolens.question.answer.require-approved-golden-case:false}")
-            boolean requireApprovedGoldenCase) {
+            boolean requireApprovedGoldenCase,
+            @Value("${foliolens.question.answer.deadline-ms:30000}")
+            long answerDeadlineMillis,
+            @Value("${foliolens.dataset.version:unknown}")
+            String datasetVersion,
+            @Value("${hcx.api.model:unknown}")
+            String modelVersion) {
         this.questionRunService = questionRunService;
         this.disclosureRetriever = disclosureRetriever;
         this.disclosureCalculator = disclosureCalculator;
         this.answerOutcomeJudge = answerOutcomeJudge;
         this.answerReferenceValidator = answerReferenceValidator;
         this.answerSafetyValidator = answerSafetyValidator;
+        this.hcxPlanGenerator = hcxPlanGenerator;
+        this.questionPlanConverter = questionPlanConverter;
         this.hcxAnswerGenerator = hcxAnswerGenerator;
         this.answerPolicies = answerPolicies;
         this.requireApprovedGoldenCase = requireApprovedGoldenCase;
+        if (answerDeadlineMillis <= 0) {
+            throw new IllegalArgumentException("answer deadline은 1ms 이상이어야 합니다.");
+        }
+        this.answerDeadlineMillis = answerDeadlineMillis;
+        this.datasetVersion = datasetVersion;
+        this.modelVersion = modelVersion;
     }
 
     public AnswerResult getAnswer(AnswerQuestionCommand command) {
+        long startedNanos = System.nanoTime();
         QuestionRun run = questionRunService.createQuestionRun(
                 command.requestId(),
                 command.externalQuestionId(),
@@ -75,8 +109,16 @@ public class OrchestrationAnswerService {
                 command.channel());
         questionRunService.startQuestionRun(run);
         try {
-            AnswerResult result = generateAnswer(command, run);
+            AnswerResult result = generateWithinDeadline(command, run);
             questionRunService.completeQuestionRun(run, result.renderedAnswer());
+            log.info(
+                    "question_run_completed requestId={} externalQuestionId={} runId={} "
+                            + "durationMs={} outcome={}",
+                    command.requestId(),
+                    safeLogIdentifier(command.externalQuestionId()),
+                    run.getId(),
+                    elapsedMillis(startedNanos),
+                    result.outcome());
             return result;
         } catch (RuntimeException exception) {
             ErrorCode errorCode = exception instanceof BusinessException businessException
@@ -87,11 +129,62 @@ public class OrchestrationAnswerService {
             } catch (RuntimeException persistenceFailure) {
                 exception.addSuppressed(persistenceFailure);
             }
+            log.warn(
+                    "question_run_failed requestId={} externalQuestionId={} runId={} "
+                            + "durationMs={} errorCode={}",
+                    command.requestId(),
+                    safeLogIdentifier(command.externalQuestionId()),
+                    run.getId(),
+                    elapsedMillis(startedNanos),
+                    errorCode.getCode());
             throw exception;
         }
     }
 
-    private AnswerResult generateAnswer(AnswerQuestionCommand command, QuestionRun run) {
+    private AnswerResult generateWithinDeadline(
+            AnswerQuestionCommand command,
+            QuestionRun run) {
+        long deadlineNanos = System.nanoTime()
+                + TimeUnit.MILLISECONDS.toNanos(answerDeadlineMillis);
+        FutureTask<AnswerResult> task = new FutureTask<>(
+                () -> RequestCorrelationFilter.withRequestId(
+                        command.requestId(),
+                        () -> generateAnswer(command, run, deadlineNanos)));
+        Thread.ofVirtual()
+                .name("answer-run-" + run.getId())
+                .start(task);
+
+        try {
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0) {
+                task.cancel(true);
+                throw deadlineExceeded(null);
+            }
+            return task.get(remainingNanos, TimeUnit.NANOSECONDS);
+        } catch (TimeoutException exception) {
+            task.cancel(true);
+            throw deadlineExceeded(exception);
+        } catch (InterruptedException exception) {
+            task.cancel(true);
+            Thread.currentThread().interrupt();
+            throw deadlineExceeded(exception);
+        } catch (ExecutionException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new BusinessException(
+                    ErrorCode.COMMON_500_1,
+                    "질문 처리 중 알 수 없는 오류가 발생했습니다.",
+                    cause);
+        }
+    }
+
+    private AnswerResult generateAnswer(
+            AnswerQuestionCommand command,
+            QuestionRun run,
+            long deadlineNanos) {
+        ensureBeforeDeadline(deadlineNanos);
         PolicyMatch match = matchPolicy(command.externalQuestionId()).orElse(null);
         if (match == null || (requireApprovedGoldenCase
                 && match.goldenCase().approvalStatus() != GoldenCaseApprovalStatus.APPROVED)) {
@@ -100,23 +193,70 @@ public class OrchestrationAnswerService {
         AnswerPolicy policy = match.policy();
         GoldenCase goldenCase = match.goldenCase();
 
-        RetrievalResult retrieval = disclosureRetriever.retrieve(GoldFacility001Fixture.questionPlan());
+        long planningStartedNanos = System.nanoTime();
+        QuestionPlanCandidate planCandidate = hcxPlanGenerator.generatePlan(command.question());
+        QuestionPlan plan = questionPlanConverter.candidateToConfirmation(planCandidate);
+        questionRunService.recordQuestionPlan(run, plan);
+        log.info(
+                "question_stage_completed requestId={} externalQuestionId={} runId={} stage=PLANNING "
+                        + "durationMs={} datasetVersion={} planSchemaVersion={} modelVersion={}",
+                command.requestId(),
+                safeLogIdentifier(command.externalQuestionId()),
+                run.getId(),
+                elapsedMillis(planningStartedNanos),
+                datasetVersion,
+                plan.schemaVersion(),
+                modelVersion);
+        ensureBeforeDeadline(deadlineNanos);
+
+        long retrievalStartedNanos = System.nanoTime();
+        RetrievalResult retrieval = answerReferenceValidator.verifiedOnly(
+                disclosureRetriever.retrieve(plan),
+                policy);
+        log.info(
+                "question_stage_completed requestId={} externalQuestionId={} runId={} stage=RETRIEVAL "
+                        + "durationMs={} datasetVersion={} retrievalVersion={} documentCount={} evidenceCount={}",
+                command.requestId(),
+                safeLogIdentifier(command.externalQuestionId()),
+                run.getId(),
+                elapsedMillis(retrievalStartedNanos),
+                datasetVersion,
+                retrieval.retrievalVersion(),
+                retrieval.documents().size(),
+                retrieval.evidences().size());
+        ensureBeforeDeadline(deadlineNanos);
+
+        long calculationStartedNanos = System.nanoTime();
         CalculationResult calculation = disclosureCalculator.calculate(
                 new CalculationCommand(policy.calculation().operation(), GOLD_COMPARISON_BASIS),
                 retrieval.facts());
+        log.info(
+                "question_stage_completed requestId={} externalQuestionId={} runId={} stage=CALCULATION "
+                        + "durationMs={} policyVersion={} operation={} verdict={}",
+                command.requestId(),
+                safeLogIdentifier(command.externalQuestionId()),
+                run.getId(),
+                elapsedMillis(calculationStartedNanos),
+                policy.policyVersion(),
+                calculation.operation(),
+                calculation.verdict());
+        ensureBeforeDeadline(deadlineNanos);
         AnswerOutcome outcome = answerOutcomeJudge.deriveOutcome(
                 policy,
                 retrieval.missingFactKeys(),
                 calculation.verdict());
         List<AnswerClaim> claims = answerOutcomeJudge.buildClaims(retrieval, calculation);
         var usedDocuments = answerReferenceValidator.validate(retrieval, List.of(calculation), claims);
-        String renderedAnswer = hcxAnswerGenerator.generateAnswer(
-                command.question(),
+        ensureBeforeDeadline(deadlineNanos);
+        String renderedAnswer = generateValidatedAnswer(
+                command,
+                run,
                 policy,
+                goldenCase,
                 retrieval,
                 calculation,
-                outcome);
-        answerSafetyValidator.validate(renderedAnswer, policy, goldenCase);
+                outcome,
+                deadlineNanos);
 
         return new AnswerResult(
                 run.getId(),
@@ -127,11 +267,102 @@ public class OrchestrationAnswerService {
                 List.of(calculation),
                 usedDocuments,
                 List.of(
-                        new ThinkTraceEntry(ExecutionStep.PLANNING, "GOLD-FACILITY-001 고정 계획을 사용했습니다."),
-                        new ThinkTraceEntry(ExecutionStep.RETRIEVAL, "고정 공시 fixture에서 근거와 fact를 조회했습니다."),
+                        new ThinkTraceEntry(ExecutionStep.PLANNING, "HCX가 생성한 계획을 검증해 사용했습니다."),
+                        new ThinkTraceEntry(ExecutionStep.RETRIEVAL, "검증된 계획으로 근거와 fact를 조회했습니다."),
                         new ThinkTraceEntry(ExecutionStep.CALCULATION, "자기자본 대비 투자금액 비율을 재계산했습니다."),
                         new ThinkTraceEntry(ExecutionStep.VALIDATION, "필수 fact와 계산 판정을 확인했습니다.")),
                 renderedAnswer);
+    }
+
+    private String generateValidatedAnswer(
+            AnswerQuestionCommand command,
+            QuestionRun run,
+            AnswerPolicy policy,
+            GoldenCase goldenCase,
+            RetrievalResult retrieval,
+            CalculationResult calculation,
+            AnswerOutcome outcome,
+            long deadlineNanos) {
+        for (int attempt = 1; attempt <= MAX_ANSWER_GENERATION_ATTEMPTS; attempt++) {
+            ensureBeforeDeadline(deadlineNanos);
+            long generationStartedNanos = System.nanoTime();
+            String renderedAnswer = hcxAnswerGenerator.generateAnswer(
+                    command.question(),
+                    policy,
+                    retrieval,
+                    calculation,
+                    outcome);
+            log.info(
+                    "question_stage_completed requestId={} externalQuestionId={} runId={} "
+                            + "stage=ANSWER_GENERATION durationMs={} modelVersion={} attempt={}",
+                    command.requestId(),
+                    safeLogIdentifier(command.externalQuestionId()),
+                    run.getId(),
+                    elapsedMillis(generationStartedNanos),
+                    modelVersion,
+                    attempt);
+            ensureBeforeDeadline(deadlineNanos);
+            long validationStartedNanos = System.nanoTime();
+            try {
+                answerSafetyValidator.validate(
+                        renderedAnswer,
+                        policy,
+                        goldenCase,
+                        retrieval,
+                        calculation);
+                log.info(
+                        "question_stage_completed requestId={} externalQuestionId={} runId={} "
+                                + "stage=VALIDATION durationMs={} policyVersion={} attempt={} status=SUCCESS",
+                        command.requestId(),
+                        safeLogIdentifier(command.externalQuestionId()),
+                        run.getId(),
+                        elapsedMillis(validationStartedNanos),
+                        policy.policyVersion(),
+                        attempt);
+                return renderedAnswer;
+            } catch (BusinessException exception) {
+                log.warn(
+                        "question_stage_completed requestId={} externalQuestionId={} runId={} "
+                                + "stage=VALIDATION durationMs={} policyVersion={} attempt={} "
+                                + "status=FAILED errorCode={}",
+                        command.requestId(),
+                        safeLogIdentifier(command.externalQuestionId()),
+                        run.getId(),
+                        elapsedMillis(validationStartedNanos),
+                        policy.policyVersion(),
+                        attempt,
+                        exception.getErrorCode().getCode());
+                if (exception.getErrorCode() != ErrorCode.AGENT_502_1
+                        || attempt == MAX_ANSWER_GENERATION_ATTEMPTS) {
+                    throw exception;
+                }
+            }
+        }
+        throw new IllegalStateException("답변 생성 시도 한도를 벗어났습니다.");
+    }
+
+    private long elapsedMillis(long startedNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+    }
+
+    private String safeLogIdentifier(String value) {
+        return value == null
+                ? "null"
+                : value.replace('\r', '_').replace('\n', '_').replace('\t', '_');
+    }
+
+    private void ensureBeforeDeadline(long deadlineNanos) {
+        if (Thread.currentThread().isInterrupted()
+                || System.nanoTime() - deadlineNanos >= 0) {
+            throw deadlineExceeded(null);
+        }
+    }
+
+    private BusinessException deadlineExceeded(Throwable cause) {
+        return new BusinessException(
+                ErrorCode.AGENT_504_1,
+                "전체 질문 처리 deadline을 초과했습니다.",
+                cause);
     }
 
     private Optional<PolicyMatch> matchPolicy(String externalQuestionId) {

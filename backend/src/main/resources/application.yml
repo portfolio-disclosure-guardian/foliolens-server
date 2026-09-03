@@ -90,6 +90,7 @@ foliolens:
   question:
     answer:
       require-approved-golden-case: ${FOLIOLENS_REQUIRE_APPROVED_GOLDEN_CASE:false}
+      deadline-ms: ${FOLIOLENS_ANSWER_DEADLINE_MS:30000}
     plan:
       search-disclosures:
         # TOOL_CONTRACTS.md 5.1절 예시값. ROLE_A_SPEC.md 9.1절 DECISION_REQUIRED — 골든셋 측정 후 확정
