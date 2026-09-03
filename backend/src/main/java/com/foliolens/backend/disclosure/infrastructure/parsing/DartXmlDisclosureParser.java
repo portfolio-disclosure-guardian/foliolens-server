@@ -79,7 +79,10 @@ import java.util.regex.Pattern;
  * → ParsedDisclosureDocument 반환
  */
 @Component
-public class DartXmlDisclosureParser {
+public class DartXmlDisclosureParser implements DisclosureDocumentParser {
+
+    @Override public String parserName() { return "DartXmlDisclosureParser"; }
+    @Override public String parserVersion() { return "1.1.0"; }
 
     private final DartXmlInputFactoryProvider inputFactoryProvider;
     private final DartXmlSourceFileValidator sourceFileValidator;

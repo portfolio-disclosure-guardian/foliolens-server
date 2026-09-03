@@ -1,0 +1,21 @@
+<html>
+<head><meta charset="utf-8"><title>계약 정정 회귀 fixture</title></head>
+<body><div class="xforms">
+<!-- 실제 일반 span 계약 정정 서식의 구조를 재현. 아래 금액은 테스트용 값이다. -->
+<div><span>정정신고(보고)</span>
+<table><tbody><tr><td>정정일자</td><td>2025-12-04</td></tr></tbody></table>
+<table><tbody>
+<tr><td>정정대상 공시서류</td><td colspan="2"><span class="xforms_input">단일판매ㆍ공급계약 체결</span></td></tr>
+<tr><td>정정항목</td><td>정정전</td><td>정정후</td></tr>
+<tr><td>계약금액(원)</td><td>100,000,000</td><td>120,000,000</td></tr>
+</tbody></table>
+<table><tbody><tr><td>변경계약에 따른 정정</td></tr></tbody></table>
+</div>
+<div>
+<span style="width:592px;font-weight:bold;text-align:center;">단일판매ㆍ공급계약 체결</span>
+<span class="noprint" style="display:none">숨김</span>
+<table><tbody>
+<tr><td>계약금액(원)</td><td>120,000,000</td></tr>
+<tr><td>계약내용</td><td>변경계약<br>공급 일정 조정</td></tr>
+</tbody></table>
+</div></div></body></html>

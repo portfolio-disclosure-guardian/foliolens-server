@@ -272,6 +272,10 @@ public class ParsedDisclosureEntityMapper {
         return jsonNode;
     }
 
+    public JsonNode relatedLinksPayload(ParsedDisclosureDocument document) {
+        return toJson(java.util.Map.of("schemaVersion", 1, "links", document.relatedLinks()));
+    }
+
     /**
      * DB의 DisclosureDocument와 파서 결과가
      * 동일한 파일을 가리키는지 확인한다.

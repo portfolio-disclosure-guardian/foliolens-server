@@ -21,6 +21,12 @@ import com.foliolens.backend.disclosure.repository.DisclosureSectionRepository;
 import com.foliolens.backend.disclosure.service.DisclosureDocumentChunkingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import com.foliolens.backend.disclosure.infrastructure.parsing.html.HtmlParserTestSupport;
+import com.foliolens.backend.disclosure.service.DisclosureDocumentParsingService;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -102,6 +108,9 @@ class DisclosureParsingPersistenceIntegrationTest {
 
     @Autowired
     JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    DisclosureDocumentParsingService parsingService;
 
     @BeforeEach
     void setUp() {
@@ -331,6 +340,96 @@ class DisclosureParsingPersistenceIntegrationTest {
         assertThat(document.getChunkGeneratorVersion()).isNotBlank();
         assertThat(document.getChunkErrorMessage()).isNull();
         assertThat(document.getChunkedAt()).isNotNull();
+    }
+
+    @Test
+    void htmlRoutesValidatesAndPersistsLinksAndReplacesOldChunks(@TempDir Path directory) throws Exception {
+        useHtmlFixture();
+        assertThat(documentRepository.countHtmlParsingTargets("신규시설투자등")).isEqualTo(1);
+        assertThat(documentRepository.findHtmlParsingTargets("신규시설투자등", null,
+                org.springframework.data.domain.PageRequest.of(0, 50)).getContent())
+                .extracting(DisclosureDocument::getId).containsExactly(DOCUMENT_ID);
+        Path source = directory.resolve(FILE_NAME);
+        Files.copy(HtmlParserTestSupport.fixture("facility-original.xml"), source);
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        chunkingService.generateAndStore(DOCUMENT_ID);
+        assertThat(documentRepository.findHtmlParsingTargets("신규시설투자등",
+                DisclosureDocumentParseStatus.PENDING,
+                org.springframework.data.domain.PageRequest.of(0, 10)).getContent()).isEmpty();
+        long oldChunks = chunkRepository.countByDisclosureDocumentId(DOCUMENT_ID);
+        assertThat(oldChunks).isPositive();
+
+        // 새 결과 저장 실패 시 먼저 삭제했던 청크와 기존 블록도 롤백되어야 한다.
+        assertThatThrownBy(() -> persistenceService.replaceParsedResult(
+                DOCUMENT_ID, createDuplicateSectionOrderDocument(), "bad-parser", "1"))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(chunkRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isEqualTo(oldChunks);
+
+        Files.copy(HtmlParserTestSupport.fixture("facility-correction.xml"), source, StandardCopyOption.REPLACE_EXISTING);
+        jdbcTemplate.update("UPDATE disclosures SET correction=TRUE WHERE id=?", DISCLOSURE_ID);
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        var document = documentRepository.findById(DOCUMENT_ID).orElseThrow();
+        assertThat(document.getParseStatus()).isEqualTo(DisclosureDocumentParseStatus.COMPLETED);
+        assertThat(document.getParserName()).isEqualTo("DartHtmlDisclosureParser");
+        assertThat(document.getParserVersion()).isEqualTo("1.1.0");
+        assertThat(document.getChunkStatus()).isEqualTo(DisclosureDocumentChunkStatus.PENDING);
+        assertThat(sectionRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isEqualTo(2);
+        assertThat(blockRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isEqualTo(4);
+        assertThat(chunkRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isZero();
+        var links = document.getRelatedDisclosureLinks().path("links");
+        assertThat(links.size()).isEqualTo(1);
+        assertThat(links.get(0).path("krxAcptNo").asText()).isEqualTo("20240430000348");
+        assertThat(links.get(0).path("dartReceiptNo").isNull()).isTrue();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM disclosure_content_blocks WHERE disclosure_document_id=? AND structured_content->>'schemaVersion'='2'",
+                Integer.class, DOCUMENT_ID)).isEqualTo(4);
+    }
+
+    @Test
+    void plainSpanContractCorrectionPersistsSeparateSectionsAndCurrentParserVersion(@TempDir Path directory) throws Exception {
+        useHtmlFixture();
+        jdbcTemplate.update("UPDATE disclosures SET correction=TRUE, raw_subtype='단일판매공급계약체결' WHERE id=?", DISCLOSURE_ID);
+        Path source = directory.resolve(FILE_NAME);
+        Files.copy(HtmlParserTestSupport.fixture("contract-correction.xml"), source);
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        var document = documentRepository.findById(DOCUMENT_ID).orElseThrow();
+        assertThat(document.getParseStatus()).isEqualTo(DisclosureDocumentParseStatus.COMPLETED);
+        assertThat(document.getParserVersion()).isEqualTo("1.1.0");
+        assertThat(document.getDocumentName()).isEqualTo("단일판매ㆍ공급계약 체결");
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT title FROM disclosure_sections WHERE disclosure_document_id=? ORDER BY sequence_no",
+                String.class, DOCUMENT_ID)).containsExactly("정정신고(보고)", "단일판매ㆍ공급계약 체결");
+        assertThat(jdbcTemplate.queryForList("""
+                SELECT count(b.id) FROM disclosure_sections s
+                LEFT JOIN disclosure_content_blocks b ON b.section_id=s.id
+                WHERE s.disclosure_document_id=? GROUP BY s.id,s.sequence_no ORDER BY s.sequence_no
+                """, Long.class, DOCUMENT_ID)).containsExactly(3L, 1L);
+    }
+
+    @Test
+    void htmlFailureIsRecordedWithoutDeletingLastSuccessfulResult(@TempDir Path directory) throws Exception {
+        useHtmlFixture();
+        Path source = directory.resolve(FILE_NAME);
+        Files.copy(HtmlParserTestSupport.fixture("facility-original.xml"), source);
+        parsingService.parseAndStore(DOCUMENT_ID, source);
+        Files.writeString(source, "<html><body>not a disclosure</body></html>");
+        assertThatThrownBy(() -> parsingService.parseAndStore(DOCUMENT_ID, source))
+                .isInstanceOf(IllegalArgumentException.class);
+        var document = documentRepository.findById(DOCUMENT_ID).orElseThrow();
+        assertThat(document.getParseStatus()).isEqualTo(DisclosureDocumentParseStatus.FAILED);
+        assertThat(document.getParserName()).isEqualTo("DartHtmlDisclosureParser");
+        assertThat(blockRepository.countByDisclosureDocumentId(DOCUMENT_ID)).isEqualTo(1);
+    }
+
+    private void useHtmlFixture() {
+        jdbcTemplate.update("""
+                UPDATE disclosures SET source_group='exchange', category='EXCHANGE',
+                    source_doc_id='exchange_' || receipt_no, base_year=NULL, base_month=NULL,
+                    raw_subtype='신규시설투자등'
+                WHERE id=?
+                """, DISCLOSURE_ID);
+        jdbcTemplate.update("UPDATE disclosure_documents SET content_format='HTML' WHERE id=?", DOCUMENT_ID);
     }
 
     private ParsedDisclosureDocument createFullParsedDocument() {

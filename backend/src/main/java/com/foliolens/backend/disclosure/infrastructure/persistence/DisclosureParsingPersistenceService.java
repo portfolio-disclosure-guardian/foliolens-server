@@ -3,6 +3,7 @@ package com.foliolens.backend.disclosure.infrastructure.persistence;
 import com.foliolens.backend.disclosure.domain.DisclosureDocument;
 import com.foliolens.backend.disclosure.infrastructure.parsing.ParsedDisclosureDocument;
 import com.foliolens.backend.disclosure.repository.DisclosureContentBlockRepository;
+import com.foliolens.backend.disclosure.repository.DisclosureChunkRepository;
 import com.foliolens.backend.disclosure.repository.DisclosureDocumentRepository;
 import com.foliolens.backend.disclosure.repository.DisclosureSectionRepository;
 import org.springframework.stereotype.Service;
@@ -19,17 +20,20 @@ public class DisclosureParsingPersistenceService {
     private final DisclosureSectionRepository sectionRepository;
     private final DisclosureContentBlockRepository blockRepository;
     private final ParsedDisclosureEntityMapper entityMapper;
+    private final DisclosureChunkRepository chunkRepository;
 
     public DisclosureParsingPersistenceService(
             DisclosureDocumentRepository documentRepository,
             DisclosureSectionRepository sectionRepository,
             DisclosureContentBlockRepository blockRepository,
-            ParsedDisclosureEntityMapper entityMapper
+            ParsedDisclosureEntityMapper entityMapper,
+            DisclosureChunkRepository chunkRepository
     ) {
         this.documentRepository = documentRepository;
         this.sectionRepository = sectionRepository;
         this.blockRepository = blockRepository;
         this.entityMapper = entityMapper;
+        this.chunkRepository = chunkRepository;
     }
 
     /**
@@ -59,6 +63,9 @@ public class DisclosureParsingPersistenceService {
          * -> 전체 교체 방식
          * 블록이 섹션을 참조하기 때문에 블록을 먼저 삭제한다.
          */
+        // 재파싱 시 구 블록을 참조하는 청크/출처부터 제거한다. 실패하면 함께 롤백된다.
+        chunkRepository.deleteAllByDisclosureDocumentId(disclosureDocumentId);
+
         int deletedBlockCount =
                 blockRepository.deleteAllByDisclosureDocumentId(
                         disclosureDocumentId
@@ -123,6 +130,7 @@ public class DisclosureParsingPersistenceService {
         /*
          * 위 저장이 모두 성공한 후에만 COMPLETED로 변경한다.
          */
+        document.replaceRelatedDisclosureLinks(entityMapper.relatedLinksPayload(parsedDocument));
         document.markCompleted(
                 parserName,
                 parserVersion,
