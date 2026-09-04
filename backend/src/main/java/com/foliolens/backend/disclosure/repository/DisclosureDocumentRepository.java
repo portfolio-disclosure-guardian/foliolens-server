@@ -221,4 +221,26 @@ public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDo
             DisclosureDocumentContentFormat contentFormat,
             String rawSubtype
     );
+
+    /**
+     * 시설투자 Fact 배치 적재 대상 접수번호를 조회한다.
+     *
+     * MAIN 문서가 파싱 완료(COMPLETED) 또는 부분 파싱(PARTIAL) 상태인
+     * 접수번호만 대상으로 하며, 정정공시를 포함한 전체 원문(예: 43건)을
+     * 한 번에 순회할 때 사용한다.
+     */
+    @Query("""
+            SELECT DISTINCT d.disclosure.receiptNo
+            FROM DisclosureDocument d
+            WHERE d.documentRole = com.foliolens.backend.disclosure.domain.DisclosureDocumentRole.MAIN
+              AND d.disclosure.rawSubtype = :rawSubtype
+              AND d.parseStatus IN (
+                    com.foliolens.backend.disclosure.domain.DisclosureDocumentParseStatus.COMPLETED,
+                    com.foliolens.backend.disclosure.domain.DisclosureDocumentParseStatus.PARTIAL
+              )
+            ORDER BY d.disclosure.receiptNo
+            """)
+    List<String> findFacilityFactIngestionReceiptNos(
+            @Param("rawSubtype") String rawSubtype
+    );
 }
