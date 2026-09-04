@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * 문서 하나의 Section과 ContentBlock을 읽어
@@ -22,6 +23,10 @@ import java.util.UUID;
  */
 @Component
 public class DisclosureChunkGenerator {
+
+    // 한글·영문 등 Unicode 문자 또는 숫자가 하나라도 있으면 보존한다.
+    // searchText의 섹션명/머리글이 아니라 청크 본문 전체만 판별한다.
+    private static final Pattern BODY_LETTER_OR_NUMBER = Pattern.compile("[\\p{L}\\p{N}]");
 
     private static final Comparator<GeneratedChunkDraft> DRAFT_ORDER =
             Comparator.comparingInt(GeneratedChunkDraft::anchorBlockSequenceNo)
@@ -104,6 +109,9 @@ public class DisclosureChunkGenerator {
             );
         }
 
+        // 일반 표 안의 '-' 셀이나 의미 있는 청크의 일부는 수정하지 않는다.
+        // 기호·공백뿐인 청크만 제외한 다음 연속된 최종 순번을 부여한다.
+        drafts.removeIf(draft -> !BODY_LETTER_OR_NUMBER.matcher(draft.bodyText()).find());
         drafts.sort(DRAFT_ORDER);
 
         List<GeneratedDisclosureChunk> completed =

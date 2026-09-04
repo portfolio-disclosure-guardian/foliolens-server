@@ -107,6 +107,8 @@ foliolens:
   chunking:
     batch:
       enabled: ${FOLIOLENS_CHUNKING_ON_STARTUP:false}
+      content-format: ${FOLIOLENS_CHUNKING_CONTENT_FORMAT:DART_XML}
+      raw-subtype: ${FOLIOLENS_CHUNKING_RAW_SUBTYPE:}
       batch-size: ${FOLIOLENS_CHUNKING_BATCH_SIZE:10}
       max-documents: ${FOLIOLENS_CHUNKING_MAX_DOCUMENTS:50}
       max-failures: ${FOLIOLENS_CHUNKING_MAX_FAILURES:5}

@@ -153,6 +153,24 @@ public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDo
             Pageable pageable
     );
 
+    /** 완료된 파싱 결과 중 아직 청킹하지 않은 문서. HTML 뷰어는 제외한다. */
+    @EntityGraph(attributePaths = "disclosure")
+    @Query("""
+            SELECT d FROM DisclosureDocument d
+            WHERE d.contentFormat = :contentFormat
+              AND d.parseStatus = com.foliolens.backend.disclosure.domain.DisclosureDocumentParseStatus.COMPLETED
+              AND d.chunkStatus = com.foliolens.backend.disclosure.domain.DisclosureDocumentChunkStatus.PENDING
+              AND (:rawSubtype IS NULL OR d.disclosure.rawSubtype = :rawSubtype)
+              AND (d.contentFormat = com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat.DART_XML
+                   OR d.disclosure.sourceGroup = com.foliolens.backend.disclosure.domain.DisclosureSourceGroup.EXCHANGE)
+            ORDER BY d.id
+            """)
+    Slice<DisclosureDocument> findChunkingTargets(
+            @Param("contentFormat") DisclosureDocumentContentFormat contentFormat,
+            @Param("rawSubtype") String rawSubtype,
+            Pageable pageable
+    );
+
     /**
      * 파싱 상태별 파일 수 조회
      */

@@ -1,5 +1,6 @@
 package com.foliolens.backend.disclosure.infrastructure.chunking.batch;
 
+import com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
@@ -30,6 +31,8 @@ public class DisclosureChunkingBatchRunner implements ApplicationRunner {
     private final int batchSize;
     private final int maxDocuments;
     private final int maxFailures;
+    private final DisclosureDocumentContentFormat contentFormat;
+    private final String rawSubtype;
 
     public DisclosureChunkingBatchRunner(
             DisclosureChunkingBatchService batchService,
@@ -38,7 +41,11 @@ public class DisclosureChunkingBatchRunner implements ApplicationRunner {
             @Value("${foliolens.chunking.batch.max-documents:50}")
             int maxDocuments,
             @Value("${foliolens.chunking.batch.max-failures:5}")
-            int maxFailures
+            int maxFailures,
+            @Value("${foliolens.chunking.batch.content-format:DART_XML}")
+            DisclosureDocumentContentFormat contentFormat,
+            @Value("${foliolens.chunking.batch.raw-subtype:}")
+            String rawSubtype
     ) {
         this.batchService = Objects.requireNonNull(
                 batchService,
@@ -53,16 +60,20 @@ public class DisclosureChunkingBatchRunner implements ApplicationRunner {
                 maxFailures,
                 "maxFailures"
         );
+        this.contentFormat = DisclosureChunkingBatchService.validateContentFormat(contentFormat);
+        this.rawSubtype = DisclosureChunkingBatchService.normalizeSubtype(rawSubtype);
     }
 
     @Override
     public void run(ApplicationArguments args) {
         log.info(
                 "검색 청크 생성을 시작합니다. "
-                        + "batchSize={}, maxDocuments={}, maxFailures={}",
+                        + "batchSize={}, maxDocuments={}, maxFailures={}, contentFormat={}, rawSubtype={}",
                 batchSize,
                 maxDocuments,
-                maxFailures
+                maxFailures,
+                contentFormat,
+                rawSubtype == null ? "ALL" : rawSubtype
         );
 
         Instant startedAt = Instant.now();
@@ -77,7 +88,7 @@ public class DisclosureChunkingBatchRunner implements ApplicationRunner {
             );
 
             DisclosureChunkingBatchResult batchResult =
-                    batchService.processNextBatch(requestedBatchSize);
+                    batchService.processNextBatch(requestedBatchSize, contentFormat, rawSubtype);
 
             if (batchResult.totalCount() == 0) {
                 break;
@@ -130,7 +141,8 @@ public class DisclosureChunkingBatchRunner implements ApplicationRunner {
                 );
 
         if (result.totalCount() == 0) {
-            log.info("청킹할 PENDING DART XML 문서가 없습니다.");
+            log.info("청킹할 PENDING 문서가 없습니다. contentFormat={}, rawSubtype={}",
+                    contentFormat, rawSubtype == null ? "ALL" : rawSubtype);
             return;
         }
 

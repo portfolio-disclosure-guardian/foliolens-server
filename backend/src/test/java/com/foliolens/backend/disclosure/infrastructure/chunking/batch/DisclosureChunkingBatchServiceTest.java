@@ -2,9 +2,7 @@ package com.foliolens.backend.disclosure.infrastructure.chunking.batch;
 
 import com.foliolens.backend.disclosure.domain.Disclosure;
 import com.foliolens.backend.disclosure.domain.DisclosureDocument;
-import com.foliolens.backend.disclosure.domain.DisclosureDocumentChunkStatus;
 import com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat;
-import com.foliolens.backend.disclosure.domain.DisclosureDocumentParseStatus;
 import com.foliolens.backend.disclosure.infrastructure.persistence.DisclosureChunkPersistenceResult;
 import com.foliolens.backend.disclosure.repository.DisclosureDocumentRepository;
 import com.foliolens.backend.disclosure.service.DisclosureDocumentChunkingService;
@@ -46,10 +44,9 @@ class DisclosureChunkingBatchServiceTest {
         DisclosureDocument second = document(secondId, 2);
 
         when(documentRepository
-                .findAllByContentFormatAndParseStatusAndChunkStatusOrderByIdAsc(
+                .findChunkingTargets(
                         DisclosureDocumentContentFormat.DART_XML,
-                        DisclosureDocumentParseStatus.COMPLETED,
-                        DisclosureDocumentChunkStatus.PENDING,
+                        null,
                         PageRequest.of(0, 2)
                 )).thenReturn(new SliceImpl<>(List.of(first, second)));
 
@@ -85,10 +82,9 @@ class DisclosureChunkingBatchServiceTest {
         );
 
         when(documentRepository
-                .findAllByContentFormatAndParseStatusAndChunkStatusOrderByIdAsc(
+                .findChunkingTargets(
                         DisclosureDocumentContentFormat.DART_XML,
-                        DisclosureDocumentParseStatus.COMPLETED,
-                        DisclosureDocumentChunkStatus.PENDING,
+                        null,
                         PageRequest.of(0, 2)
                 )).thenReturn(new SliceImpl<>(List.of(failed, success)));
 
@@ -125,10 +121,9 @@ class DisclosureChunkingBatchServiceTest {
     @Test
     void emptyPendingResultReturnsEmptyBatch() {
         when(documentRepository
-                .findAllByContentFormatAndParseStatusAndChunkStatusOrderByIdAsc(
+                .findChunkingTargets(
                         DisclosureDocumentContentFormat.DART_XML,
-                        DisclosureDocumentParseStatus.COMPLETED,
-                        DisclosureDocumentChunkStatus.PENDING,
+                        null,
                         PageRequest.of(0, 10)
                 )).thenReturn(new SliceImpl<>(List.of()));
 
@@ -137,6 +132,40 @@ class DisclosureChunkingBatchServiceTest {
 
         assertThat(result.totalCount()).isZero();
         assertThat(result.hasFailures()).isFalse();
+    }
+
+    @Test
+    void htmlSubtypeIsNormalizedAndOnlySelectedDocumentsAreProcessed() {
+        UUID id = UUID.randomUUID();
+        DisclosureDocument htmlDocument = document(id, 1);
+        when(documentRepository.findChunkingTargets(
+                DisclosureDocumentContentFormat.HTML, "신규시설투자등", PageRequest.of(0, 5)))
+                .thenReturn(new SliceImpl<>(List.of(htmlDocument)));
+        when(chunkingService.generateAndStore(id)).thenReturn(result(id, 0, 2, 2));
+
+        var result = batchService.processNextBatch(5, DisclosureDocumentContentFormat.HTML, " 신규시설투자등 ");
+
+        assertThat(result.successCount()).isEqualTo(1);
+        verify(documentRepository).findChunkingTargets(
+                DisclosureDocumentContentFormat.HTML, "신규시설투자등", PageRequest.of(0, 5));
+        verify(chunkingService).generateAndStore(id);
+    }
+
+    @Test
+    void emptySubtypeSelectsAllHtmlTypes() {
+        when(documentRepository.findChunkingTargets(
+                DisclosureDocumentContentFormat.HTML, null, PageRequest.of(0, 5)))
+                .thenReturn(new SliceImpl<>(List.of()));
+        assertThat(batchService.processNextBatch(5, DisclosureDocumentContentFormat.HTML, "  ").totalCount()).isZero();
+    }
+
+    @Test
+    void unsupportedOrMissingFormatIsRejectedBeforeDatabaseAccess() {
+        assertThatThrownBy(() -> batchService.processNextBatch(5, DisclosureDocumentContentFormat.PDF, null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("DART_XML 또는 HTML");
+        assertThatThrownBy(() -> batchService.processNextBatch(5, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        org.mockito.Mockito.verifyNoInteractions(documentRepository, chunkingService);
     }
 
     private DisclosureDocument document(UUID documentId, int index) {
