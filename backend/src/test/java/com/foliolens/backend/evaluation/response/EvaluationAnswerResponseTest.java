@@ -34,7 +34,7 @@ class EvaluationAnswerResponseTest {
     @Test
     void 사용된_근거가_있으면_retrieved_context가_snake_case로_비어있지_않게_직렬화된다() {
         RetrievedDocument evidence = new RetrievedDocument(
-                "20240424800596",
+                "6c14fda6-4001-4df4-8132-e42c9bbd0ad2",
                 "20240424800596",
                 "SK하이닉스",
                 "000660",

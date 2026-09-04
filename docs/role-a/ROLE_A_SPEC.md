@@ -95,13 +95,20 @@
 
 > 2026-09-04 갱신(A9 작업): 이 절만 최신화했다. 문서 상단 메타데이터(검토일 2026-08-25)는 문서 전체 재검토 시점이라 그대로 둔다.
 
-- 전체 테스트 콘솔 요약: 486개 중 실패 0, 에러 0. Docker 가용성 부족으로 인한 skip은 0건이다.
+- 전체 테스트 콘솔 요약: 491개 중 실패 0, 에러 0(무관 기업 502 수정의 회귀 테스트 1건 포함, 2026-09-04 최신 실행 기준). Docker 가용성 부족으로 인한 skip은 0건이다.
 - skip 8건은 모두 이번 작업 이전부터 있던 의도적 opt-in 게이트다: `foliolens.test.dataset-root` 시스템 프로퍼티가 없으면 건너뛰는 HTML/PDF 코퍼스·청킹 테스트, `FOLIOLENS_ACTUAL_DB_AUDIT=true`가 아니면 건너뛰는 실 DB 감사 테스트.
 - `OrchestrationAnswerServiceTest` 12/12 통과. GOLD-FACILITY-001~003이 모두 APPROVED로 바뀐 뒤 "승인 강제 시 검토중 케이스는 placeholder" 테스트가 운영 fixture를 더는 pending으로 가정하지 않도록 테스트 전용 C_REVIEW_PENDING 정책으로 분리했다.
 - `OrchestrationAnswerRealDataIntegrationTest` 5/5 통과. 승인된 골든 케이스 3건(SK하이닉스·셀트리온·LG이노텍)을 모두 seed해 실제 PostgreSQL(Testcontainers)에서 COMPLETED·MATCH·기대 답변 일치까지 확인하는 테스트를 추가했다. 이 과정에서 `FakeHcxAnswerGenerator`가 질문과 무관하게 항상 `goldenCases().getFirst()`의 답변만 반환하던 결함을 고쳐 회사별로 올바른 답변이 나오게 했다.
 - `disclosureData` HealthIndicator를 추가해 readiness 그룹(`readinessState,db,disclosureData`)이 Flyway V12 적용 여부와 승인된 골든 케이스의 필수 fact·evidence 존재까지 확인한다. 데이터가 없으면 `/actuator/health/readiness`가 더는 UP을 반환하지 않는다.
 - 별도 Compose project(`foliolens-a9verify`)로 빈 PostgreSQL → `backup/foliolens-db.dump` 복원(disclosures 4204·facts 345·evidences 345, 원본과 일치) → 최신 이미지 기동을 재현해, Flyway가 12개 마이그레이션을 재실행 없이 validate하고 readiness가 UP이 되는 것을 확인했다(검증 후 project/volume 정리). README의 제출 프로필 절에 복원 명령을 추가했다.
-- 남은 것: 실제 제출용 HCX 키(`HCX_APP_TYPE=serviceapp`)로 대표 질문 3건 전체 smoke. 인프라 전용 smoke(`submission-smoke.ps1 -InfrastructureOnly`)는 통과했지만 실 키 응답 품질 smoke는 키 보유자가 실행해야 한다.
+- 실제 제출용 HCX 키(`serviceapp`)로 대표 질문 3건(`20240424800596`/`20260324800030`/`20251127800903`) 전체 smoke 통과: HTTP 200, 5개 키, `question_id`·질문 원문 보존, `retrieved_context[0].receipt_no`가 실제 접수번호, 계산 판정 MATCH, placeholder 미반환. 이 과정에서 실 HCX 호출로만 드러나는 결함 두 개를 발견해 함께 고쳤다(MockMvc 기반 테스트는 실제 서블릿 파싱·자유생성 계획 응답을 거치지 않아 둘 다 놓치고 있었다).
+  1. `SearchDisclosuresInput.subtypes`가 HCX가 가끔 만들어내는 "신규시설 투자등"(내부 공백)을 정책의 `disclosureSubtype()`("신규시설투자등")과 다른 문자열로 취급해 정책 매칭에 실패했다. subtypes 캐노니컬 생성자에서 내부 공백을 제거하도록 고쳤다(자유 검색어인 titleTerms는 그대로 둠).
+  2. `RetrievedContextResponse.receipt_no`가 실제로는 `RetrievedDocument.documentId`(내부 UUID)를 반환하고 있었다(기존 `ponytail:` 주석에 이미 알려진 gap으로 기록돼 있었음). `RetrievedDocument`에 `receiptNo` 필드를 추가해 documentId(증거 매칭용 식별자)와 분리했다.
+- HCX-005는 temperature=0.5라 계획 생성이 완전히 결정적이지 않다(같은 질문도 매 호출 응답이 달라짐). subtypes 공백 수정 이후에는 재현율이 크게 올라갔지만, 드물게 날짜 범위 등이 달라져 0건 검색으로 빠지는 시도가 남아 있어 재시도로 통과시켰다 — 코드 결함이 아니라 자유생성 계획의 고유한 변동성이다.
+- 무관 기업 질문(예: 삼성전자)이 근거 0건으로 정상 격리된 뒤에도 HTTP 502(`AGENT_502_1`)로 실패하던 결함을 고쳤다. `OrchestrationAnswerService`가 `AnswerOutcome.UNANSWERABLE`(필수 fact 전부 누락)일 때도 매번 HCX 자유생성을 호출했는데, 근거 없이 생성된 문장은 `AnswerSafetyValidator`의 금액·날짜·비율 검증을 통과할 수 없어 재시도 2회를 모두 소진하고 502로 끝났다. UNANSWERABLE이면 HCX 호출 없이 결정적 답변 불가 문구(`대회 제공 공시 원문에서 해당 항목을 확인할 수 없습니다.` — `FakeHcxAnswerGenerator`가 이미 쓰던 문구와 동일)를 바로 반환하도록 고치고, 회귀 테스트(`OrchestrationAnswerServiceTest#근거를_전혀_찾지_못하면_HCX_호출_없이_결정적_답변불가를_반환한다`)를 추가했다(위 491개 집계에 포함).
+- `submission-smoke.ps1`이 Markdown 강조(`**...**`)·줄바꿈/중복 공백·"일치" 대신 "동일합니다"/"맞습니다" 같은 정상 표현을 실패로 오판하던 취약점을 고쳤다. 비교 전에 Markdown 기호(`*_\``)를 제거하고 공백을 정규화하는 `Normalize-Text`를 추가했고, 판정 문구는 고정 문자열 대신 정규식(`일치|동일|맞습니다|부합`)으로 넓혔다. 실제로 이번 재검증에서 SK하이닉스 답변이 "9.90%로 맞습니다"/"9.90%로... 일치하는 것을 확인할 수 있습니다"처럼 호출마다 다르게 나와 이 완화가 바로 필요했다.
+- 위 502 수정을 실제 HCX(`serviceapp`) + 새로 복원한 DB로 재검증했다: 대표 질문 3건(SK하이닉스 10.97초, 셀트리온 12.54초, LG이노텍 15.89초 — LG이노텍은 1차 시도가 이미 알려진 HCX-005 계획 변동성으로 502가 나 재시도 후 14.41초에 통과, 근거는 documentCount=1/evidenceCount=4로 정상 조회된 상태였고 원인은 이번 수정과 무관)는 모두 HTTP 200·정확한 접수번호·정확한 금액/비율. 무관 기업(삼성전자, 동일 "신규시설투자" 문구) 질문은 HTTP 200·7.89초·`retrieved_context` 빈 배열·답변 "대회 제공 공시 원문에서 해당 항목을 확인할 수 없습니다."로 확인했다. 서버 로그로 `documentCount=0 evidenceCount=0` → `stage=ANSWER_GENERATION` 없이 바로 `outcome=UNANSWERABLE` 완료를 확인해 HCX를 아예 호출하지 않았음을 검증했다. 네 요청 모두 30초 이내였고 재검증 종료 후 readiness는 계속 UP이었다.
+  - 재검증 과정에서 이 로컬 `foliolens` 제출 프로필 컨테이너의 DB 볼륨이 2026-09-01 스냅샷(구버전 마이그레이션 번호 체계, 옛 V9=`add question run tracking`)에 머물러 있어 현재 마이그레이션 파일(V9=`add_related_disclosure_links`로 재번호화됨, 총 12개)과 Flyway 체크섬이 어긋나 기동이 실패하는 것을 발견했다. 이번 502 수정과는 무관한 로컬 환경 문제였고, README의 제출 프로필 절차대로 볼륨을 지우고 `backup/foliolens-db.dump`에서 새로 복원해 해결했다(원본 덤프 파일 자체는 변경 없음).
 
 ## 4. 현재 코드의 잔여 차이
 
@@ -116,7 +123,7 @@
 | 계획 검증 | 구현 없음 | schema, 기업, 기간, 도구, 의존성, 상한 검증 테스트 |
 | 관심사 profile | `interestCodes` 필드만 있고 profile·검증 없음 | 첫 슬라이스 profile 하나와 명시 조건 비제거 규칙 검증 |
 | 검색 결과 | `RetrievalResult`가 빈 record | 문서·fact·evidence·history·실행 결과·누락·경고·버전 반환 |
-| 검색 문서 DTO | `RetrievedDocument`가 접수번호·출처·검색 방법 등 추적 필드 누락 | `TOOL_CONTRACTS.md`의 문서 경계 필드와 정렬 |
+| 검색 문서 DTO | `RetrievedDocument`에 `receiptNo` 추가 완료(2026-09-04, evaluation 응답의 `receipt_no`가 더는 documentId를 반환하지 않음). 출처·검색 방법 등 나머지 추적 필드는 아직 없음 | `TOOL_CONTRACTS.md`의 문서 경계 필드와 정렬 |
 | 계산 경계 | 없음 | 검증 fact ID만 받는 `DisclosureCalculator` 한 개 추가 |
 | 실행 상태 | run을 `PENDING`으로 저장한 뒤 상태를 바꾸지 않음 | 성공·실패 전이, 답변/오류/종료시각 기록 |
 | channel | Entity 생성자가 `EVALUATION`을 고정 | `AnswerQuestionCommand.channel`을 저장까지 전달 |
@@ -125,7 +132,6 @@
 | 신뢰성 | deadline, 재검색·재생성 한도, 단계 로그 없음 | 설정 한도와 결정적 시나리오 테스트 |
 | 오류 코드 | `DATASET_503_2`가 문자열 코드 `DATASET_503_1`을 중복 사용 | 코드 고유성 테스트와 값 수정 |
 | 평가 profile | CONTEST 전용 Bean 경계와 데이터 readiness 없음 | 금지 외부 호출 0건과 준비 상태 검증 |
-| 제출 검증 | 새 DB 기동·readiness·README 명령 재현은 검증 완료(3.1절) | 실제 제출용 HCX 키로 대표 질문 3건 전체 smoke만 남음 |
 
 ## 5. 역할 A가 소유하는 잔여 계약
 
@@ -320,7 +326,7 @@ DisclosureCalculator.calculate(CalculationCommand, List<RetrievedFact>) -> Calcu
 | A6 | HCX 최소 연동(DONE) | 계획·답변 구조화 출력 schema와 timeout 연동 테스트 통과 |
 | A7 | 검증·신뢰성·추적(DONE) | 참조 무결성, 금지 표현, deadline, retry, 세 ID·처리시간·버전·오류 코드, run 전이와 redaction 테스트 통과 |
 | A8 | 실제 데이터 연결(DONE) | exchange HTML fact/evidence/calculation adapter로 기준 질문 통과 |
-| A9 | 제출 환경 | 새 DB Docker 기동, readiness, 대표 질문 smoke와 README 명령 재현 |
+| A9 | 제출 환경(DONE) | 새 DB Docker 기동, readiness, 대표 질문 smoke와 README 명령 재현 |
 
 첫 범위를 통과하기 전 비교·이력의 범위 확장, P1/P2, cache, 비동기 API와 범용 workflow framework를 추가하지 않는다.
 

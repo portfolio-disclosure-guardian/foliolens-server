@@ -136,6 +136,7 @@ class DefaultDisclosureRetrieverTest {
         );
         RetrievedDocument document = new RetrievedDocument(
                 documentId.toString(),
+                documentId.toString(),
                 "SK하이닉스",
                 "000660",
                 "exchange",
@@ -309,6 +310,7 @@ class DefaultDisclosureRetrieverTest {
                 .isEqualTo(new RetrievalCoverage(2, true));
         assertThat(result.documents()).singleElement().satisfies(document -> {
             assertThat(document.documentId()).isEqualTo(documentId.toString());
+            assertThat(document.receiptNo()).isEqualTo("20240424800596");
             assertThat(document.content()).contains("5조 2,962억 원");
         });
         assertThat(result.evidences()).singleElement().satisfies(evidence -> {

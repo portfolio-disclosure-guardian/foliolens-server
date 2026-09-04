@@ -5,6 +5,10 @@ param(
     [string]$QuestionId = "A9-SMOKE-001",
     [string]$Question = "SK하이닉스가 2024년 4월 발표한 신규시설투자의 투자금액과 목적은 무엇이고, 자기자본 대비 비율은 맞는가?",
     [string]$ExpectedReceiptNo = "20240424800596",
+    [string]$ExpectedAmountPattern = "(5조\s*2,?962억\s*원|5,296,200,000,000\s*원|5296200000000\s*원)",
+    [string]$ExpectedPurpose = "차세대 DRAM 생산능력 확장",
+    [string]$ExpectedRatioPattern = "9\.90\s*(%|퍼센트)",
+    [string]$ExpectedVerdictPattern = "일치|동일|맞습니다|부합",
     [int]$TimeoutSec = 45
 )
 
@@ -26,6 +30,14 @@ function Get-Json {
     param([string]$Uri)
 
     Invoke-RestMethod -Method Get -Uri $Uri -TimeoutSec $TimeoutSec
+}
+
+# Markdown 강조(*_`)와 줄바꿈·중복 공백 차이로 정상 표현을 오판하지 않도록 비교 전 정규화한다.
+function Normalize-Text {
+    param([string]$Text)
+
+    $noMarkdown = [string]$Text -replace '[*_`]', ''
+    ($noMarkdown -replace '\s+', ' ').Trim()
 }
 
 $liveness = Get-Json "$BaseUrl/actuator/health/liveness"
@@ -58,5 +70,11 @@ Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$response.answer)) "
 Assert-Condition (
     $response.answer -ne "답변 생성 기능이 아직 연결되지 않았습니다."
 ) "placeholder 답변이 반환됐습니다."
+$normalizedAnswer = Normalize-Text $response.answer
+$normalizedPurpose = Normalize-Text $ExpectedPurpose
+Assert-Condition ($normalizedAnswer -match $ExpectedAmountPattern) "답변에 기대 투자금액 표현이 없습니다."
+Assert-Condition ($normalizedAnswer.Contains($normalizedPurpose)) "답변에 투자목적 핵심 문구가 없습니다."
+Assert-Condition ($normalizedAnswer -match $ExpectedRatioPattern) "답변에 9.90% 비율이 없습니다."
+Assert-Condition ($normalizedAnswer -match $ExpectedVerdictPattern) "답변에 비율 일치 판정이 없습니다."
 
 Write-Host "A9 submission smoke passed."

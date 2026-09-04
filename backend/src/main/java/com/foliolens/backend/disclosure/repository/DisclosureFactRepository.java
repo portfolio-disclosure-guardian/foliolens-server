@@ -46,7 +46,11 @@ public interface DisclosureFactRepository
 
     long countByDisclosureDocumentId(UUID disclosureDocumentId);
 
-    long countBySourceReceiptNoAndFactKey(String sourceReceiptNo, String factKey);
+    long countBySourceReceiptNoAndFactKeyAndValidationStatus(
+            String sourceReceiptNo,
+            String factKey,
+            FactValidationStatus validationStatus
+    );
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""

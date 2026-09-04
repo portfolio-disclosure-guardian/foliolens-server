@@ -262,6 +262,19 @@ class OrchestrationAnswerServiceTest {
     }
 
     @Test
+    void 근거를_전혀_찾지_못하면_HCX_호출_없이_결정적_답변불가를_반환한다() {
+        service = newService(false, FakeDisclosureRetriever.noDocuments(), 30_000);
+
+        AnswerResult result = service.getAnswer(command());
+
+        assertEquals(AnswerOutcome.UNANSWERABLE, result.outcome());
+        assertEquals("대회 제공 공시 원문에서 해당 항목을 확인할 수 없습니다.", result.renderedAnswer());
+        assertThat(result.usedEvidences()).isEmpty();
+        verifyNoInteractions(hcxAnswerGenerator);
+        verify(questionRunService).completeQuestionRun(run, result.renderedAnswer());
+    }
+
+    @Test
     void 다른_회사_질문에는_다른_회사_골든_케이스의_criticalErrors가_적용되지_않는다() {
         GoldenCase celltrion = GoldFacility001Fixture.policy().goldenCases().stream()
                 .filter(gc -> gc.companyName().equals("셀트리온"))
@@ -375,6 +388,7 @@ class OrchestrationAnswerServiceTest {
         RetrievalResult verified = FakeDisclosureRetriever.complete()
                 .retrieve(GoldFacility001Fixture.questionPlan());
         RetrievedDocument candidateDocument = new RetrievedDocument(
+                "DOC-CANDIDATE",
                 "DOC-CANDIDATE",
                 "후보 기업",
                 "999999",

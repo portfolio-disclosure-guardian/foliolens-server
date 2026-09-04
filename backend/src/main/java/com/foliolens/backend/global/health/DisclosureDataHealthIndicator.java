@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 
 import com.foliolens.backend.disclosure.repository.DisclosureEvidenceRepository;
 import com.foliolens.backend.disclosure.repository.DisclosureFactRepository;
+import com.foliolens.backend.disclosure.domain.fact.EvidenceStatus;
+import com.foliolens.backend.disclosure.domain.fact.FactValidationStatus;
 import com.foliolens.backend.policy.AnswerPolicy;
 import com.foliolens.backend.policy.FactNecessity;
 import com.foliolens.backend.policy.GoldenCase;
@@ -85,12 +87,16 @@ public class DisclosureDataHealthIndicator implements HealthIndicator {
             if (factPolicy.necessity() != FactNecessity.REQUIRED) {
                 continue;
             }
-            long count = factRepository.countBySourceReceiptNoAndFactKey(goldenCase.receiptNo(), factPolicy.factKey());
+            long count = factRepository.countBySourceReceiptNoAndFactKeyAndValidationStatus(
+                    goldenCase.receiptNo(),
+                    factPolicy.factKey(),
+                    FactValidationStatus.VERIFIED);
             if (count == 0) {
                 return "missing required fact " + factPolicy.factKey();
             }
         }
-        if (evidenceRepository.countByReceiptNo(goldenCase.receiptNo()) == 0) {
+        if (evidenceRepository.countByReceiptNoAndStatus(
+                goldenCase.receiptNo(), EvidenceStatus.VERIFIED) == 0) {
             return "missing evidence";
         }
         return null;

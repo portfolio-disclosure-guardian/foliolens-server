@@ -95,6 +95,7 @@ class DisclosureFactRetrievalMapperTest {
                 Map.of(disclosureId, metadata)
         )).singleElement().satisfies(document -> {
             assertThat(document.documentId()).isEqualTo(documentId.toString());
+            assertThat(document.receiptNo()).isEqualTo("20240424800596");
             assertThat(document.companyName()).isEqualTo("SK하이닉스");
             assertThat(document.content()).contains("5,296,200,000,000");
         });

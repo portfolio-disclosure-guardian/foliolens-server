@@ -54,6 +54,8 @@ import lombok.extern.slf4j.Slf4j;
 public class OrchestrationAnswerService {
     private static final ComparisonBasis GOLD_COMPARISON_BASIS = new ComparisonBasis(true, true, true, true);
     private static final int MAX_ANSWER_GENERATION_ATTEMPTS = 2;
+    private static final String UNANSWERABLE_ANSWER =
+            "대회 제공 공시 원문에서 해당 항목을 확인할 수 없습니다.";
 
     private final QuestionRunService questionRunService;
     private final DisclosureRetriever disclosureRetriever;
@@ -257,15 +259,20 @@ public class OrchestrationAnswerService {
         List<AnswerClaim> claims = answerOutcomeJudge.buildClaims(retrieval, calculation);
         var usedDocuments = answerReferenceValidator.validate(retrieval, List.of(calculation), claims);
         ensureBeforeDeadline(deadlineNanos);
-        String renderedAnswer = generateValidatedAnswer(
-                command,
-                run,
-                policy,
-                goldenCase,
-                retrieval,
-                calculation,
-                outcome,
-                deadlineNanos);
+        // 근거가 전혀 없어 필수 fact가 모두 빠지면(UNANSWERABLE) HCX 자유생성을 거치지 않는다.
+        // 근거 없이 생성한 답변은 AnswerSafetyValidator를 통과할 수 없어 재시도 한도를 소진하고
+        // AGENT_502_1(HTTP 502)로 실패했다 — 무관 기업 질문처럼 검색 결과가 0건일 때 재현됨.
+        String renderedAnswer = outcome == AnswerOutcome.UNANSWERABLE
+                ? UNANSWERABLE_ANSWER
+                : generateValidatedAnswer(
+                        command,
+                        run,
+                        policy,
+                        goldenCase,
+                        retrieval,
+                        calculation,
+                        outcome,
+                        deadlineNanos);
 
         return new AnswerResult(
                 run.getId(),

@@ -1,6 +1,7 @@
 package com.foliolens.backend.disclosure.repository;
 
 import com.foliolens.backend.disclosure.infrastructure.persistence.fact.DisclosureEvidenceEntity;
+import com.foliolens.backend.disclosure.domain.fact.EvidenceStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -24,7 +25,7 @@ public interface DisclosureEvidenceRepository
 
     long countByDisclosureDocumentId(UUID disclosureDocumentId);
 
-    long countByReceiptNo(String receiptNo);
+    long countByReceiptNoAndStatus(String receiptNo, EvidenceStatus status);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
