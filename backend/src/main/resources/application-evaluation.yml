@@ -15,16 +15,29 @@ foliolens:
       enabled: false
       batch:
         enabled: false
+    html-structure:
+      batch:
+        enabled: false
   validation:
     xml-parsing:
+      batch:
+        enabled: false
+    html-parsing:
       batch:
         enabled: false
   parsing:
     xml-persistence:
       batch:
         enabled: false
+    html-persistence:
+      batch:
+        enabled: false
+    pdf-persistence:
+      enabled: false
   chunking:
     batch:
+      enabled: false
+    target:
       enabled: false
 
 hcx:

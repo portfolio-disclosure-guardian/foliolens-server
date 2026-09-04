@@ -137,6 +137,20 @@ A8 실제 데이터 연결이 완료된 뒤에는 대표 질문, 평가 응답�
 .\scripts\submission-smoke.ps1
 ```
 
+### 제출 프로필
+
+제출 환경은 개발용 Compose 위에 배치 실행을 모두 끄고 HCX와 버전을 필수화하는 오버레이를 적용한다.
+
+```powershell
+Copy-Item .env.submission.example .env.submission
+# .env.submission의 비밀번호와 HCX_API_KEY를 실제 값으로 변경
+docker compose --env-file .env.submission -f compose.yaml -f compose.submission.yaml config --quiet
+docker compose --env-file .env.submission -f compose.yaml -f compose.submission.yaml up -d --build
+.\scripts\submission-smoke.ps1 -InfrastructureOnly
+```
+
+제출 프로필은 승인된 골든 케이스만 실행한다. 현재 시설투자 fixture가 `C_REVIEW_PENDING`인 동안 전체 smoke가 placeholder로 실패하는 것은 의도된 상태다.
+
 ### Frontend
 
 현재 프론트엔드는 기능 화면이 아닌 개발 초기 템플릿이다.

@@ -28,6 +28,7 @@ replay_pid*
 .env
 .env.*
 !.env.example
+!.env.submission.example
 
 # Gradle
 backend/.gradle/
