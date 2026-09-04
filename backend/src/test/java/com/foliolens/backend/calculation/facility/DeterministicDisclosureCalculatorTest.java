@@ -284,6 +284,195 @@ class DeterministicDisclosureCalculatorTest {
     }
 
     @Test
+    void 투자기간_일수를_계산하고_비교대상이_없어_비교불가로_반환한다() {
+        CalculationResult result = calculator.calculate(
+                dateDurationCommand(),
+                List.of(
+                        dateFact(
+                                "start-1",
+                                "facility.start_date",
+                                "2024-04-24",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        ),
+                        dateFact(
+                                "end-1",
+                                "facility.end_date",
+                                "2024-04-30",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        )
+                )
+        );
+
+        assertThat(result.verdict()).isEqualTo(CalculationVerdict.NOT_COMPARABLE);
+        assertThat(result.rawResult()).isEqualTo(7.0);
+        assertThat(result.displayValue()).isEqualTo("7");
+        assertThat(result.disclosedValue()).isNull();
+        assertThat(result.unit()).isEqualTo("일");
+        assertThat(result.inputFactIds())
+                .containsExactly("start-1", "end-1");
+    }
+
+    @Test
+    void 시작일과_종료일이_같으면_하루로_계산한다() {
+        CalculationResult result = calculator.calculate(
+                dateDurationCommand(),
+                List.of(
+                        dateFact(
+                                "start-1",
+                                "facility.start_date",
+                                "2024-04-24",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        ),
+                        dateFact(
+                                "end-1",
+                                "facility.end_date",
+                                "2024-04-24",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        )
+                )
+        );
+
+        assertThat(result.displayValue()).isEqualTo("1");
+    }
+
+    @Test
+    void 종료일이_시작일보다_빠르면_계산불가를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                dateDurationCommand(),
+                List.of(
+                        dateFact(
+                                "start-1",
+                                "facility.start_date",
+                                "2024-04-24",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        ),
+                        dateFact(
+                                "end-1",
+                                "facility.end_date",
+                                "2024-04-23",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("종료일이 시작일보다 빠릅니다");
+    }
+
+    @Test
+    void 투자기간_입력이_누락되면_계산불가를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                dateDurationCommand(),
+                List.of(dateFact(
+                        "start-1",
+                        "facility.start_date",
+                        "2024-04-24",
+                        DISCLOSURE_1,
+                        FactValidationStatus.VERIFIED
+                ))
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("facility.end_date");
+    }
+
+    @Test
+    void 투자기간_시작일과_종료일이_다른_공시면_계산불가를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                dateDurationCommand(),
+                List.of(
+                        dateFact(
+                                "start-1",
+                                "facility.start_date",
+                                "2024-04-24",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        ),
+                        dateFact(
+                                "end-1",
+                                "facility.end_date",
+                                "2024-04-30",
+                                DISCLOSURE_2,
+                                FactValidationStatus.VERIFIED
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("같은 공시");
+    }
+
+    @Test
+    void 투자기간_검증되지_않은_Fact는_계산에_사용하지_않는다() {
+        CalculationResult result = calculator.calculate(
+                dateDurationCommand(),
+                List.of(
+                        dateFact(
+                                "start-1",
+                                "facility.start_date",
+                                "2024-04-24",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        ),
+                        dateFact(
+                                "end-1",
+                                "facility.end_date",
+                                "2024-04-30",
+                                DISCLOSURE_1,
+                                FactValidationStatus.UNVALIDATED
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("VERIFIED");
+    }
+
+    @Test
+    void 투자기간_같은_factKey가_여러개면_임의로_선택하지_않는다() {
+        CalculationResult result = calculator.calculate(
+                dateDurationCommand(),
+                List.of(
+                        dateFact(
+                                "start-1",
+                                "facility.start_date",
+                                "2024-04-24",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        ),
+                        dateFact(
+                                "start-2",
+                                "facility.start_date",
+                                "2024-05-01",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        ),
+                        dateFact(
+                                "end-1",
+                                "facility.end_date",
+                                "2024-04-30",
+                                DISCLOSURE_1,
+                                FactValidationStatus.VERIFIED
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("여러 개");
+    }
+
+    @Test
     void 지원하지_않는_연산은_계산불가를_반환한다() {
         CalculationResult result = calculator.calculate(
                 new CalculationCommand(
@@ -305,6 +494,13 @@ class DeterministicDisclosureCalculatorTest {
         return new CalculationCommand(
                 CalculationOperation.RATIO,
                 new ComparisonBasis(true, sameFactKey, true, true)
+        );
+    }
+
+    private CalculationCommand dateDurationCommand() {
+        return new CalculationCommand(
+                CalculationOperation.DATE_DURATION,
+                new ComparisonBasis(true, false, true, true)
         );
     }
 
@@ -334,11 +530,49 @@ class DeterministicDisclosureCalculatorTest {
             String unit,
             FactValidationStatus validationStatus
     ) {
+        return fact(
+                factId,
+                factKey,
+                FactValueType.DECIMAL,
+                normalizedValue,
+                disclosureId,
+                unit,
+                validationStatus
+        );
+    }
+
+    private RetrievedFact dateFact(
+            String factId,
+            String factKey,
+            String isoDate,
+            String disclosureId,
+            FactValidationStatus validationStatus
+    ) {
+        return fact(
+                factId,
+                factKey,
+                FactValueType.DATE,
+                isoDate,
+                disclosureId,
+                "ISO_DATE",
+                validationStatus
+        );
+    }
+
+    private RetrievedFact fact(
+            String factId,
+            String factKey,
+            FactValueType valueType,
+            String normalizedValue,
+            String disclosureId,
+            String unit,
+            FactValidationStatus validationStatus
+    ) {
         return new RetrievedFact(
                 factId,
                 disclosureId,
                 factKey,
-                FactValueType.DECIMAL,
+                valueType,
                 normalizedValue,
                 normalizedValue,
                 unit,
