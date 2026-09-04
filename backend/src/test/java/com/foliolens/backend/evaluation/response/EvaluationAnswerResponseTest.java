@@ -25,14 +25,11 @@ class EvaluationAnswerResponseTest {
 
     private static final Set<String> TOP_LEVEL_KEYS = Set.of(
             "question_id", "question", "retrieved_context", "think_trace", "answer");
-    private static final Set<String> CONTEXT_ITEM_KEYS = Set.of(
-            "receipt_no", "report_name", "submitted_at", "section", "content");
-    private static final Set<String> TRACE_ITEM_KEYS = Set.of("step", "summary");
 
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @Test
-    void 사용된_근거가_있으면_retrieved_context가_snake_case로_비어있지_않게_직렬화된다() {
+    void 사용된_근거가_있으면_retrieved_context가_문자열로_직렬화된다() {
         RetrievedDocument evidence = new RetrievedDocument(
                 "6c14fda6-4001-4df4-8132-e42c9bbd0ad2",
                 "20240424800596",
@@ -60,21 +57,18 @@ class EvaluationAnswerResponseTest {
         assertEquals(TOP_LEVEL_KEYS, fieldNames(root));
 
         JsonNode context = root.get("retrieved_context");
-        assertTrue(context.isArray());
-        assertEquals(1, context.size());
-        JsonNode item = context.get(0);
-        assertEquals(CONTEXT_ITEM_KEYS, fieldNames(item));
-        assertEquals("20240424800596", item.get("receipt_no").asString());
-        assertEquals("2024-04-24", item.get("submitted_at").asString());
+        assertTrue(context.isString());
+        assertTrue(context.asString().contains("20240424800596"));
+        assertTrue(context.asString().contains("2024-04-24"));
 
         JsonNode trace = root.get("think_trace");
-        assertEquals(1, trace.size());
-        assertEquals(TRACE_ITEM_KEYS, fieldNames(trace.get(0)));
-        assertEquals("RETRIEVAL", trace.get(0).get("step").asString());
+        assertTrue(trace.isString());
+        assertTrue(trace.asString().contains("RETRIEVAL"));
+        assertTrue(trace.asString().contains("관련 공시를 검색했습니다."));
     }
 
     @Test
-    void 사용된_근거가_없으면_retrieved_context는_빈_배열이지만_스키마는_동일하다() {
+    void 사용된_근거가_없으면_retrieved_context는_빈_문자열이지만_스키마는_동일하다() {
         AnswerResult result = new AnswerResult(
                 UUID.randomUUID(),
                 "q-002",
@@ -89,8 +83,8 @@ class EvaluationAnswerResponseTest {
         JsonNode root = objectMapper.convertValue(EvaluationAnswerResponse.from(result), JsonNode.class);
 
         assertEquals(TOP_LEVEL_KEYS, fieldNames(root));
-        assertTrue(root.get("retrieved_context").isArray());
-        assertEquals(0, root.get("retrieved_context").size());
+        assertTrue(root.get("retrieved_context").isString());
+        assertEquals("", root.get("retrieved_context").asString());
     }
 
     private static Set<String> fieldNames(JsonNode node) {

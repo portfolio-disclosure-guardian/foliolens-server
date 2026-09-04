@@ -1,6 +1,7 @@
 package com.foliolens.backend.orchestration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -484,7 +485,7 @@ class OrchestrationAnswerServiceTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.question_id").value(evaluationQuestionId))
                 .andExpect(jsonPath("$.question").value(goldenCase.question()))
-                .andExpect(jsonPath("$.retrieved_context[0].receipt_no").value(goldenCase.receiptNo()))
+                .andExpect(jsonPath("$.retrieved_context", containsString(goldenCase.receiptNo())))
                 .andExpect(jsonPath("$.think_trace").isNotEmpty())
                 .andExpect(jsonPath("$.answer").value(goldenCase.expectedAnswer()));
     }

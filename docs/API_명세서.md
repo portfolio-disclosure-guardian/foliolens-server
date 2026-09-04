@@ -9,7 +9,8 @@
 | 상세 계약 | `API_상세_명세서.md` |
 | 구현 기준 | Java 21, Spring Boot, PostgreSQL |
 
-> 2026-08-25 역할 A 동기화: 평가 API 진입점·mapper·예외 경계와 실행 상태 축의 현재 사실만 갱신했다. 인증·오류 body, `retrieved_context`·`think_trace` 최종 타입, intent schema와 역할 B·C 영역은 확정하지 않았다.
+> 2026-08-25 역할 A 동기화: 평가 API 진입점·mapper·예외 경계와 실행 상태 축의 현재 사실만 갱신했다. 오류 body, intent schema와 역할 B·C 영역은 확정하지 않았다.
+> 2026-09-05 주최측 평가 API 공지 반영: 인증 헤더 미사용, `retrieved_context`·`think_trace` 문자열 타입, 순차 단건 호출·300초 타임아웃·5xx/타임아웃 2회 재시도가 확정됐다. 16절·22절 참고.
 
 ## 1. 목적과 범위
 
@@ -733,31 +734,14 @@ GET /answer?question_id=q-001&question=A사의%202025년%20매출액은?
 
 ### 16.2 응답
 
-아래는 미확정 working example(`EXTERNAL_PENDING`)이다. 현재 mapper는 5개 최상위 키를 만들지만 `retrieved_context`를 항상 빈 배열로 두고 `think_trace`를 문자열 목록으로 반환한다. 최종 wire 타입이 확정되기 전에는 예시를 구현 완료 또는 확정 계약의 근거로 사용하지 않는다.
+주최측 평가 API 공지(2026-09-05)로 wire 타입이 확정됐다: 5개 최상위 키의 값은 모두 문자열이다. 여러 근거·실행 단계는 문자열 안에서 구분 태그로 자유롭게 연결하며, 태그 형식 자체는 평가 대상이 아니다.
 
 ```json
 {
   "question_id": "q-001",
   "question": "A사의 2025년 매출액은?",
-  "retrieved_context": [
-    {
-      "receipt_no": "20250320000001",
-      "report_name": "사업보고서",
-      "submitted_at": "2025-03-20",
-      "section": "III. 재무에 관한 사항",
-      "content": "답변에 실제 사용한 문맥"
-    }
-  ],
-  "think_trace": [
-    {
-      "step": "RETRIEVAL",
-      "summary": "A사의 2025년 사업보고서에서 매출액 항목을 검색했습니다."
-    },
-    {
-      "step": "VALIDATION",
-      "summary": "답변 수치와 공시 근거가 일치하는지 확인했습니다."
-    }
-  ],
+  "retrieved_context": "[1] receipt_no=20250320000001 | report_name=사업보고서 | submitted_at=2025-03-20 | section=III. 재무에 관한 사항\n답변에 실제 사용한 문맥",
+  "think_trace": "[RETRIEVAL] A사의 2025년 사업보고서에서 매출액 항목을 검색했습니다.\n[VALIDATION] 답변 수치와 공시 근거가 일치하는지 확인했습니다.",
   "answer": "A사의 2025년 매출액은 ...입니다. 근거: 2025년 사업보고서 ..."
 }
 ```
@@ -765,11 +749,12 @@ GET /answer?question_id=q-001&question=A사의%202025년%20매출액은?
 ### 16.3 규칙
 
 - 평가는 동기 응답이다.
-- `retrieved_context`에는 실제 사용한 근거만 포함한다.
+- `question_id`, `question`, `retrieved_context`, `think_trace`, `answer` 모든 필드는 문자열(string) 타입이다.
+- `retrieved_context`에는 실제 사용한 근거만 포함하며, 여러 문서는 문자열 안에서 번호·구분 태그로 연결한다.
 - 모든 답변은 근거 공시를 명시한다.
 - `think_trace`는 안전한 실행 요약이며 모델의 내부 사고과정이 아니다.
 - 답변 불가 시에도 같은 스키마로 반환하고 `answer`에 정보 한계를 명시한다.
-- 최종 자료형은 운영진 규격이 확정되면 평가 DTO에서 조정한다.
+- 요청에는 인증 헤더를 사용하지 않는다. 경로는 `/answer`로 고정한다.
 
 ## 17. 오류 코드
 
@@ -919,14 +904,13 @@ datasetVersion + sourceDocumentId + contentHash
 
 ## 22. 확정이 필요한 사항
 
-1. 평가 API의 최종 인증 방식
-2. `retrieved_context`와 `think_trace`의 최종 자료형
-3. 평가 질문 제한시간과 동시 요청 수
-4. 웹 질문의 polling 주기와 전체 보존기간
-5. 데모 세션 토큰 전달 방식을 헤더 또는 쿠키 중 무엇으로 할지
-6. 답변 URL 공유 허용 여부
-7. 공시 원문 섹션의 cursor 또는 page 방식
-8. 내부 데이터 적재를 HTTP API와 CLI 중 무엇으로 운영할지
-9. P2 포트폴리오 API의 재개 시점
+> 2026-09-05 주최측 공지로 평가 API 인증 방식(미사용), `retrieved_context`·`think_trace` 자료형(문자열), 평가 질문 제한시간(300초)과 동시 요청 수(순차 단건)는 확정됐다. 아래는 남은 항목이다.
+
+1. 웹 질문의 polling 주기와 전체 보존기간
+2. 데모 세션 토큰 전달 방식을 헤더 또는 쿠키 중 무엇으로 할지
+3. 답변 URL 공유 허용 여부
+4. 공시 원문 섹션의 cursor 또는 page 방식
+5. 내부 데이터 적재를 HTTP API와 CLI 중 무엇으로 운영할지
+6. P2 포트폴리오 API의 재개 시점
 
 이 항목이 확정되면 `DECISIONS.md`, 본 문서와 상세 명세를 함께 갱신한다.

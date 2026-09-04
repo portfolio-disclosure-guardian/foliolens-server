@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$BaseUrl = "http://localhost:8080",
     [switch]$InfrastructureOnly,
@@ -61,10 +61,11 @@ $keyDifference = Compare-Object $expectedKeys $actualKeys
 Assert-Condition ($null -eq $keyDifference) "평가 응답의 최상위 키가 정확한 5개가 아닙니다."
 Assert-Condition ($response.question_id -eq $QuestionId) "question_id가 보존되지 않았습니다."
 Assert-Condition ($response.question -eq $Question) "질문 원문이 보존되지 않았습니다."
-Assert-Condition (@($response.think_trace).Count -gt 0) "think_trace가 비어 있습니다."
-Assert-Condition (@($response.retrieved_context).Count -gt 0) "retrieved_context가 비어 있습니다. A8 실제 데이터 연결을 확인하세요."
+# 주최측 평가 API 공지(2026-09-05)에 따라 retrieved_context/think_trace는 문자열이다.
+Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$response.think_trace)) "think_trace가 비어 있습니다."
+Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$response.retrieved_context)) "retrieved_context가 비어 있습니다. A8 실제 데이터 연결을 확인하세요."
 Assert-Condition (
-    @($response.retrieved_context | Where-Object { $_.receipt_no -eq $ExpectedReceiptNo }).Count -gt 0
+    ([string]$response.retrieved_context).Contains($ExpectedReceiptNo)
 ) "대표 공시 $ExpectedReceiptNo 가 retrieved_context에 없습니다."
 Assert-Condition (-not [string]::IsNullOrWhiteSpace([string]$response.answer)) "answer가 비어 있습니다."
 Assert-Condition (
