@@ -26,6 +26,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.apache.commons:commons-csv:1.14.1'
+	implementation 'org.jsoup:jsoup:1.23.2'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -44,4 +45,7 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	if (providers.gradleProperty('contestDatasetRoot').isPresent()) {
+		systemProperty 'foliolens.test.dataset-root', providers.gradleProperty('contestDatasetRoot').get()
+	}
 }

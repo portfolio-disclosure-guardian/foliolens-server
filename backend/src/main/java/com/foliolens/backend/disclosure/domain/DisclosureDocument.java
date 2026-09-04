@@ -21,6 +21,10 @@ import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeFactory;
 
 import java.text.Normalizer;
 import java.time.Instant;
@@ -114,6 +118,21 @@ public class DisclosureDocument extends BaseTimeEntity {
 
     @Column(name = "parsed_at")
     private Instant parsedAt;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "related_disclosure_links", nullable = false, columnDefinition = "jsonb")
+    private JsonNode relatedDisclosureLinks = JsonNodeFactory.instance.objectNode()
+            .put("schemaVersion", 1)
+            .set("links", JsonNodeFactory.instance.arrayNode());
+
+    public void replaceRelatedDisclosureLinks(JsonNode payload) {
+        Objects.requireNonNull(payload, "관련공시 링크 payload는 필수입니다.");
+        if (!payload.isObject() || payload.path("schemaVersion").asInt() != 1
+                || !payload.path("links").isArray()) {
+            throw new IllegalArgumentException("관련공시 링크 payload가 올바르지 않습니다.");
+        }
+        this.relatedDisclosureLinks = payload.deepCopy();
+    }
 
     @NotNull
     @Enumerated(EnumType.STRING)

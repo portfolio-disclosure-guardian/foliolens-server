@@ -17,6 +17,29 @@ import java.util.UUID;
 
 public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDocument, UUID> {
 
+    @EntityGraph(attributePaths = "disclosure")
+    @Query("""
+            SELECT d FROM DisclosureDocument d
+            WHERE d.contentFormat = com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat.HTML
+              AND d.disclosure.sourceGroup = com.foliolens.backend.disclosure.domain.DisclosureSourceGroup.EXCHANGE
+              AND d.disclosure.rawSubtype = :rawSubtype
+              AND (:status IS NULL OR d.parseStatus = :status)
+            ORDER BY d.id
+            """)
+    Slice<DisclosureDocument> findHtmlParsingTargets(
+            @Param("rawSubtype") String rawSubtype,
+            @Param("status") DisclosureDocumentParseStatus status,
+            Pageable pageable
+    );
+
+    @Query("""
+            SELECT count(d) FROM DisclosureDocument d
+            WHERE d.contentFormat = com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat.HTML
+              AND d.disclosure.sourceGroup = com.foliolens.backend.disclosure.domain.DisclosureSourceGroup.EXCHANGE
+              AND d.disclosure.rawSubtype = :rawSubtype
+            """)
+    long countHtmlParsingTargets(@Param("rawSubtype") String rawSubtype);
+
     /**
      * Fact 추출처럼 공시 메타데이터도 함께 사용하는 조회.
      */
@@ -71,6 +94,20 @@ public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDo
     @EntityGraph(attributePaths = "disclosure")
     Slice<DisclosureDocument> findAllByContentFormatOrderByIdAsc(
             DisclosureDocumentContentFormat contentFormat,
+            Pageable pageable
+    );
+
+    /**
+     * 실제 콘텐츠 형식과 공시 원문 유형으로 구조 조사 대상을 좁혀 조회한다.
+     *
+     * HTML 구조 조사 초기에는 시설투자 공시처럼 대표 유형부터 살펴보고,
+     * 규칙이 안정된 뒤 전체 HTML 문서로 범위를 넓힐 때 사용한다.
+     */
+    @EntityGraph(attributePaths = "disclosure")
+    Slice<DisclosureDocument>
+    findAllByContentFormatAndDisclosure_RawSubtypeOrderByIdAsc(
+            DisclosureDocumentContentFormat contentFormat,
+            String rawSubtype,
             Pageable pageable
     );
 
@@ -143,4 +180,12 @@ public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDo
      * 구분해서 집계할 때 사용한다.
      */
     long countByContentFormat(DisclosureDocumentContentFormat contentFormat);
+
+    /**
+     * 실제 콘텐츠 형식과 공시 원문 유형을 모두 만족하는 문서 수를 조회한다.
+     */
+    long countByContentFormatAndDisclosure_RawSubtype(
+            DisclosureDocumentContentFormat contentFormat,
+            String rawSubtype
+    );
 }

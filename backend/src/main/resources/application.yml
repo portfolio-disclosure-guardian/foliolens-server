@@ -64,7 +64,24 @@ foliolens:
         limit: ${FOLIOLENS_PROFILE_XML_BATCH_LIMIT:50}
         report-path: ${FOLIOLENS_PROFILE_XML_BATCH_REPORT_PATH:./reports/xml-structure-profile.csv}
 
+    html-structure:
+      batch:
+        enabled: ${FOLIOLENS_PROFILE_HTML_BATCH_ON_STARTUP:false}
+        page: ${FOLIOLENS_PROFILE_HTML_BATCH_PAGE:0}
+        limit: ${FOLIOLENS_PROFILE_HTML_BATCH_LIMIT:50}
+        # 빈 문자열이면 모든 HTML 문서를 조사한다.
+        raw-subtype: ${FOLIOLENS_PROFILE_HTML_BATCH_RAW_SUBTYPE:신규시설투자등}
+        report-path: ${FOLIOLENS_PROFILE_HTML_BATCH_REPORT_PATH:./reports/html-structure-profile.csv}
+
   validation:
+    html-parsing:
+      batch:
+        enabled: ${FOLIOLENS_VALIDATE_HTML_PARSING_ON_STARTUP:false}
+        page: ${FOLIOLENS_VALIDATE_HTML_PARSING_PAGE:0}
+        limit: ${FOLIOLENS_VALIDATE_HTML_PARSING_LIMIT:50}
+        expected-count: ${FOLIOLENS_VALIDATE_HTML_PARSING_EXPECTED_COUNT:43}
+        raw-subtype: ${FOLIOLENS_VALIDATE_HTML_PARSING_RAW_SUBTYPE:신규시설투자등}
+        report-path: ${FOLIOLENS_VALIDATE_HTML_PARSING_REPORT_PATH:./reports/html-parsing-validation.csv}
     xml-parsing:
       batch:
         enabled: ${FOLIOLENS_VALIDATE_XML_PARSING_ON_STARTUP:false}
@@ -73,6 +90,13 @@ foliolens:
         report-path: ${FOLIOLENS_VALIDATE_XML_PARSING_REPORT_PATH:./reports/xml-parsing-validation.csv}
 
   parsing:
+    html-persistence:
+      batch:
+        enabled: ${FOLIOLENS_PERSIST_HTML_PARSING_ON_STARTUP:false}
+        batch-size: ${FOLIOLENS_PERSIST_HTML_PARSING_BATCH_SIZE:10}
+        max-documents: ${FOLIOLENS_PERSIST_HTML_PARSING_MAX_DOCUMENTS:43}
+        max-failures: ${FOLIOLENS_PERSIST_HTML_PARSING_MAX_FAILURES:5}
+        raw-subtype: ${FOLIOLENS_PERSIST_HTML_PARSING_RAW_SUBTYPE:신규시설투자등}
     xml-persistence:
       batch:
         enabled: ${FOLIOLENS_PERSIST_XML_PARSING_ON_STARTUP:false}
@@ -98,6 +122,12 @@ foliolens:
         limit-max: ${FOLIOLENS_PLAN_SEARCH_DISCLOSURES_LIMIT_MAX:50}
 hcx:
   api:
+    base-url: ${HCX_API_BASE_URL:https://api.hcx.com}
+    client-id: ${HCX_API_CLIENT_ID:change-this-client-id}
+    client-secret: ${HCX_API_CLIENT_SECRET:change-this-client-secret}
+    token:
+    url: ${HCX_API_TOKEN_URL:https://api.hcx.com/oauth/token}
+    grant-type: client_credentials No newline at end of file
     enabled: ${HCX_API_ENABLED:false}          # false면 Fake 유지
     base-url: ${HCX_API_BASE_URL:https://clovastudio.stream.ntruss.com}
     api-key: ${HCX_API_KEY:}
