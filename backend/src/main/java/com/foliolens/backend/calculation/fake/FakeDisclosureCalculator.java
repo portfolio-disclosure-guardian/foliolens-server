@@ -7,19 +7,27 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import com.foliolens.backend.calculation.CalculationCommand;
 import com.foliolens.backend.calculation.CalculationResult;
 import com.foliolens.backend.calculation.CalculationVerdict;
 import com.foliolens.backend.calculation.DisclosureCalculator;
+import com.foliolens.backend.calculation.facility.DeterministicDisclosureCalculator;
 import com.foliolens.backend.policy.CalculationPolicy;
 import com.foliolens.backend.policy.GoldFacility001Fixture;
 import com.foliolens.backend.retrieval.RetrievedFact;
 
-// A5 fake 수직 연결: GOLD-FACILITY-001의 자기자본 대비 비율(facility.amount / facility.equity_amount)만
-// 계산한다. 다른 factKey·operation은 아직 실제 DisclosureCalculator가 없으므로 다루지 않는다.
+/**
+ * A5 fake 수직 연결: GOLD-FACILITY-001의 자기자본 대비 비율(facility.amount /
+ * facility.equity_amount)만 계산한다. 다른 factKey·operation은 다루지 않는다.
+ *
+ * 실제 계산기는 {@link DeterministicDisclosureCalculator}이며 fake-calculation
+ * 프로필이 아닐 때 대신 활성화된다.
+ */
 @Component
+@Profile("fake-calculation")
 public final class FakeDisclosureCalculator implements DisclosureCalculator {
 
     private static final BigDecimal PERCENT_MULTIPLIER = BigDecimal.valueOf(100);
