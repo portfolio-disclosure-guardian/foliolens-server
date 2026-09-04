@@ -109,11 +109,18 @@ public class JdbcDisclosureChunkSearchRepository
                 ))
                 .toList();
 
+        List<String> resultWarnings = new ArrayList<>(warnings);
+        if (hits.stream().flatMap(hit -> hit.sources().stream()).anyMatch(source -> source.sourcePageNumber() != null)) {
+            resultWarnings.add(com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextExtractionReport.LIMITATION);
+        }
+        if (hits.stream().flatMap(hit -> hit.sources().stream()).anyMatch(DisclosureChunkSourceReference::textExtractionSuspect)) {
+            resultWarnings.add("텍스트 추출 품질이 의심되는 PDF 페이지가 포함됐습니다. 원본 페이지를 확인해야 합니다.");
+        }
         return new SearchResult(
                 hits,
                 scopeStats.searchableDocumentCount(),
                 totalCandidates,
-                warnings
+                resultWarnings
         );
     }
 
@@ -501,8 +508,11 @@ public class JdbcDisclosureChunkSearchRepository
                     dcs.source_line_end,
                     dcs.table_nesting_path,
                     dcs.table_row_index_start,
-                    dcs.table_row_index_end
+                    dcs.table_row_index_end,
+                    dcb.source_page_number,
+                    dcb.text_extraction_suspect
                 FROM disclosure_chunk_sources dcs
+                JOIN disclosure_content_blocks dcb ON dcb.id = dcs.content_block_id
                 WHERE dcs.disclosure_chunk_id IN (:chunkIds)
                 ORDER BY
                     dcs.disclosure_chunk_id,
@@ -535,7 +545,9 @@ public class JdbcDisclosureChunkSearchRepository
                                 nullableInteger(
                                         resultSet,
                                         "table_row_index_end"
-                                )
+                                ),
+                                nullableInteger(resultSet, "source_page_number"),
+                                resultSet.getBoolean("text_extraction_suspect")
                         )
                 )
         );

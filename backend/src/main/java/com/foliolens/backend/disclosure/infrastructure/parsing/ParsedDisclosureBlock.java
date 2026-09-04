@@ -18,11 +18,16 @@ public record ParsedDisclosureBlock(
 
         // 시작 라인과 끝 라인은 근거 제시에 중요함!
         int sourceLineStart,
-        int sourceLineEnd
+        int sourceLineEnd,
+        com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfPageLocation pdfPage
 ) {
 
     public ParsedDisclosureBlock {
         type = Objects.requireNonNull(type, "type은 필수입니다.");
+        if (pdfPage != null && (type != ParsedDisclosureBlockType.PARAGRAPH
+                || sourceLineStart != -1 || sourceLineEnd != -1)) {
+            throw new IllegalArgumentException("PDF 텍스트는 PARAGRAPH와 별도 페이지 위치를 사용해야 합니다.");
+        }
 
         if (order < 0) {
             throw new IllegalArgumentException(
@@ -83,6 +88,11 @@ public record ParsedDisclosureBlock(
                 }
             }
         }
+    }
+
+    public ParsedDisclosureBlock(ParsedDisclosureBlockType type, int order, String content,
+            ParsedDisclosureTable table, ParsedDisclosureImage image, int sourceLineStart, int sourceLineEnd) {
+        this(type, order, content, table, image, sourceLineStart, sourceLineEnd, null);
     }
 
     public static ParsedDisclosureBlock text(

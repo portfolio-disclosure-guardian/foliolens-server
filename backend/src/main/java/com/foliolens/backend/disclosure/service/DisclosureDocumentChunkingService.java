@@ -123,8 +123,7 @@ public class DisclosureDocumentChunkingService {
     }
 
     private void validateChunkable(DisclosureDocument document) {
-        if (document.getParseStatus()
-                != DisclosureDocumentParseStatus.COMPLETED) {
+        if (!document.isChunkable()) {
             throw new IllegalStateException(
                     "파싱이 완료된 문서만 청크를 생성할 수 있습니다."
                             + " disclosureDocumentId="

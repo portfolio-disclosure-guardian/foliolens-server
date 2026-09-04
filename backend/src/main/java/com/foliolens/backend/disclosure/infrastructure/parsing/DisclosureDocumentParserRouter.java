@@ -12,6 +12,13 @@ import java.util.Set;
 public class DisclosureDocumentParserRouter {
     private final DartXmlDisclosureParser xmlParser;
     private final DartHtmlDisclosureParser htmlParser;
+    private final com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextDisclosureParser pdfParser;
+
+    public DisclosureDocumentParserRouter(DartXmlDisclosureParser xmlParser, DartHtmlDisclosureParser htmlParser,
+            com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextDisclosureParser pdfParser) {
+        this.xmlParser = xmlParser;
+        this.htmlParser = htmlParser;
+        this.pdfParser = pdfParser;
 
     public DisclosureDocumentParserRouter(DartXmlDisclosureParser xmlParser, DartHtmlDisclosureParser htmlParser) {
         this.xmlParser = xmlParser;
@@ -33,6 +40,11 @@ public class DisclosureDocumentParserRouter {
                 }
                 yield htmlParser;
             }
+            case PDF -> {
+                if (!"periodic".equals(group)) throw new IllegalArgumentException("PDF 최소 지원은 정기공시 전용입니다.");
+                yield pdfParser;
+            }
+            case UNKNOWN -> throw new IllegalArgumentException(
             case PDF, UNKNOWN -> throw new IllegalArgumentException(
                     "지원하지 않는 원문 형식입니다: " + document.getContentFormat());
         };

@@ -168,7 +168,7 @@ public class ParsedDisclosureEntityMapper {
             ParsedDisclosureBlock parsedBlock
     ) {
         // 엔티티로 변환!
-        return switch (parsedBlock.type()) {
+        DisclosureContentBlock block = switch (parsedBlock.type()) {
             case HEADING -> DisclosureContentBlock.text(
                     disclosureDocument,
                     section,
@@ -226,6 +226,10 @@ public class ParsedDisclosureEntityMapper {
                     parsedBlock
             );
         };
+        if (parsedBlock.pdfPage() != null) {
+            block.attachPdfPage(parsedBlock.pdfPage().pageNumber(), parsedBlock.pdfPage().textExtractionSuspect());
+        }
+        return block;
     }
 
     private DisclosureContentBlock mapPageBreak(
@@ -274,6 +278,10 @@ public class ParsedDisclosureEntityMapper {
 
     public JsonNode relatedLinksPayload(ParsedDisclosureDocument document) {
         return toJson(java.util.Map.of("schemaVersion", 1, "links", document.relatedLinks()));
+    }
+
+    public JsonNode parseMetadataPayload(ParsedDisclosureDocument document) {
+        return document.pdfTextReport() == null ? toJson(java.util.Map.of()) : toJson(document.pdfTextReport());
     }
 
     /**

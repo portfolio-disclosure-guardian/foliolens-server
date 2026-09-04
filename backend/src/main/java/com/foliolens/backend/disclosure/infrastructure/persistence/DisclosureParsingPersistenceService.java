@@ -131,6 +131,21 @@ public class DisclosureParsingPersistenceService {
          * 위 저장이 모두 성공한 후에만 COMPLETED로 변경한다.
          */
         document.replaceRelatedDisclosureLinks(entityMapper.relatedLinksPayload(parsedDocument));
+        var pdfReport = parsedDocument.pdfTextReport();
+        if (document.getContentFormat() == com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat.PDF
+                && pdfReport == null) {
+            throw new IllegalArgumentException("PDF는 최소 추출 한계와 페이지 정보를 함께 저장해야 합니다.");
+        }
+        document.replaceParseMetadata(entityMapper.parseMetadataPayload(parsedDocument));
+        if (pdfReport != null) {
+            if (document.getContentFormat() != com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat.PDF
+                    || !com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextDisclosureParser.NAME.equals(parserName)) {
+                throw new IllegalArgumentException("PDF 최소 추출 결과와 문서/파서 형식이 일치하지 않습니다.");
+            }
+            document.markPartial(parserName, parserVersion, pdfReport.limitation(), Instant.now());
+        } else {
+            document.markCompleted(parserName, parserVersion, Instant.now());
+        }
         document.markCompleted(
                 parserName,
                 parserVersion,

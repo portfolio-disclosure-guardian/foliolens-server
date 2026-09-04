@@ -9,6 +9,9 @@ import static org.mockito.Mockito.*;
 class DisclosureDocumentParserRouterTest {
     private final DartXmlDisclosureParser xml = mock(DartXmlDisclosureParser.class);
     private final DartHtmlDisclosureParser html = mock(DartHtmlDisclosureParser.class);
+    private final com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextDisclosureParser pdf =
+            mock(com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextDisclosureParser.class);
+    private final DisclosureDocumentParserRouter router = new DisclosureDocumentParserRouter(xml, html, pdf);
     private final DisclosureDocumentParserRouter router = new DisclosureDocumentParserRouter(xml, html);
 
     @Test void routesByContentFormatNotXmlExtension() {
@@ -21,6 +24,10 @@ class DisclosureDocumentParserRouterTest {
     @Test void rejectsViewersUnknownPdfAndConflictingGroup() {
         assertThatThrownBy(() -> router.select(document(DisclosureDocumentContentFormat.HTML, "periodic", DisclosureDocumentRole.VIEWER)))
                 .hasMessageContaining("뷰어");
+        assertThat(router.select(document(DisclosureDocumentContentFormat.PDF, "periodic", DisclosureDocumentRole.MAIN)))
+                .isSameAs(pdf);
+        assertThatThrownBy(() -> router.select(document(DisclosureDocumentContentFormat.PDF, "exchange", DisclosureDocumentRole.MAIN)))
+                .hasMessageContaining("정기공시");
         assertThatThrownBy(() -> router.select(document(DisclosureDocumentContentFormat.PDF, "periodic", DisclosureDocumentRole.MAIN)))
                 .hasMessageContaining("지원하지");
         assertThatThrownBy(() -> router.select(document(DisclosureDocumentContentFormat.DART_XML, "exchange", DisclosureDocumentRole.MAIN)))

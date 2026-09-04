@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * 검색된 청크에서 원본 ContentBlock과 XML·TABLE 위치로 돌아가기 위한 참조 정보
- * 검색 청크가 원문의 어디에서 만들어졌는지 알려주는 위치 참조 모델
+ * 검색 청크가 원문의 어디에서 만들어졌는지 알려주는 위치 참조 모델 ...
  *
  */
 public record DisclosureChunkSourceReference(
@@ -17,7 +17,9 @@ public record DisclosureChunkSourceReference(
         int sourceLineEnd, // 원본 XML에서 해당 블록이 위치한 행 범위
         String tableNestingPath, // 중첩 표가 있는 경우 TABLE JSONB 안의 정확한 위치
         Integer tableRowIndexStart, // TABLE 청크를 만들 때 실제로 사용한 표 행 범위
-        Integer tableRowIndexEnd // TABLE 청크를 만들 때 실제로 사용한 표 행 범위
+        Integer tableRowIndexEnd, // TABLE 청크를 만들 때 실제로 사용한 표 행 범위
+        Integer sourcePageNumber, // PDF 물리 페이지(1부터). null이면 기존 XML/HTML 위치
+        boolean textExtractionSuspect // PDF 추출 품질 경고. false도 표·수치 검증을 뜻하지 않음
 ) {
 
     public DisclosureChunkSourceReference {
@@ -43,6 +45,11 @@ public record DisclosureChunkSourceReference(
         }
 
         validateSourceLines(sourceLineStart, sourceLineEnd);
+        if ((sourcePageNumber != null && (sourcePageNumber < 1 || sourceLineStart != -1
+                || sourceLineEnd != -1 || tableRowIndexStart != null))
+                || (sourcePageNumber == null && textExtractionSuspect)) {
+            throw new IllegalArgumentException("PDF 페이지 참조가 올바르지 않습니다.");
+        }
         validateTableLocation(
                 tableNestingPath,
                 tableRowIndexStart,
@@ -50,6 +57,13 @@ public record DisclosureChunkSourceReference(
         );
 
         tableNestingPath = normalizeOptionalText(tableNestingPath);
+    }
+
+    public DisclosureChunkSourceReference(UUID chunkSourceId, UUID contentBlockId, int sourceOrder,
+            int blockSequenceNo, int sourceLineStart, int sourceLineEnd, String tableNestingPath,
+            Integer tableRowIndexStart, Integer tableRowIndexEnd) {
+        this(chunkSourceId, contentBlockId, sourceOrder, blockSequenceNo, sourceLineStart, sourceLineEnd,
+                tableNestingPath, tableRowIndexStart, tableRowIndexEnd, null, false);
     }
 
     private static void validateSourceLines(int start, int end) {

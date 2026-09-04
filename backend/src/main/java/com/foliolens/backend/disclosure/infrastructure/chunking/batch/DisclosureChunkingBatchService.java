@@ -86,6 +86,9 @@ public class DisclosureChunkingBatchService {
 
     static DisclosureDocumentContentFormat validateContentFormat(DisclosureDocumentContentFormat format) {
         if (format != DisclosureDocumentContentFormat.DART_XML
+                && format != DisclosureDocumentContentFormat.HTML
+                && format != DisclosureDocumentContentFormat.PDF) {
+            throw new IllegalArgumentException("청킹 contentFormat은 DART_XML, HTML 또는 PDF이어야 합니다.");
                 && format != DisclosureDocumentContentFormat.HTML) {
             throw new IllegalArgumentException("청킹 contentFormat은 DART_XML 또는 HTML이어야 합니다.");
         }

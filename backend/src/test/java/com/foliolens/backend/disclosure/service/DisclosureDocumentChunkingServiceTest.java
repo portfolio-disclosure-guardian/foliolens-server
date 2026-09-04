@@ -182,6 +182,7 @@ class DisclosureDocumentChunkingServiceTest {
         when(document.getId()).thenReturn(DOCUMENT_ID);
         when(document.getParseStatus())
                 .thenReturn(DisclosureDocumentParseStatus.COMPLETED);
+        when(document.isChunkable()).thenReturn(true);
         return document;
     }
 }
