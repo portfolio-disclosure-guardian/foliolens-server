@@ -26,6 +26,7 @@ import com.foliolens.backend.calculation.CalculationResult;
 import com.foliolens.backend.calculation.ComparisonBasis;
 import com.foliolens.backend.calculation.DisclosureCalculator;
 import com.foliolens.backend.policy.AnswerPolicy;
+import com.foliolens.backend.policy.FactNecessity;
 import com.foliolens.backend.policy.GoldenCase;
 import com.foliolens.backend.policy.GoldenCaseApprovalStatus;
 import com.foliolens.backend.global.exception.BusinessException;
@@ -39,6 +40,7 @@ import com.foliolens.backend.question.plan.ToolType;
 import com.foliolens.backend.question.plan.candidate.QuestionPlanCandidate;
 import com.foliolens.backend.question.plan.confirmation.PlanStep;
 import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
+import com.foliolens.backend.question.plan.toolinput.LookupFactsInput;
 import com.foliolens.backend.question.plan.toolinput.SearchDisclosuresInput;
 import com.foliolens.backend.question.service.QuestionRunService;
 import com.foliolens.backend.retrieval.DisclosureRetriever;
@@ -213,6 +215,7 @@ public class OrchestrationAnswerService {
         }
         AnswerPolicy policy = match.policy();
         GoldenCase goldenCase = match.goldenCase();
+        plan = ensureRequiredFactKeysLookedUp(plan, policy);
 
         long retrievalStartedNanos = System.nanoTime();
         RetrievalResult retrieval = answerReferenceValidator.verifiedOnly(
@@ -368,6 +371,48 @@ public class OrchestrationAnswerService {
                 ErrorCode.AGENT_504_1,
                 "전체 질문 처리 deadline을 초과했습니다.",
                 cause);
+    }
+
+    // HCX가 계산 입력 fact만 요청하고 비교 대상 공시 기재값(예: facility.equity_ratio)을
+    // 빠뜨리는 경우가 있어, 역할 C가 승인한 policy.facts()의 REQUIRED factKey는
+    // LOOKUP_FACTS step에 항상 포함되도록 Spring이 직접 보강한다. HCX 응답에 기대지 않는다.
+    private QuestionPlan ensureRequiredFactKeysLookedUp(QuestionPlan plan, AnswerPolicy policy) {
+        List<String> requiredFactKeys = policy.facts().stream()
+                .filter(fact -> fact.necessity() == FactNecessity.REQUIRED)
+                .map(fact -> fact.factKey())
+                .toList();
+        if (requiredFactKeys.isEmpty()) {
+            return plan;
+        }
+
+        List<PlanStep> augmentedSteps = plan.steps().stream()
+                .map(step -> augmentLookupFactsStep(step, requiredFactKeys))
+                .toList();
+        return new QuestionPlan(
+                plan.schemaVersion(),
+                plan.companies(),
+                plan.time(),
+                augmentedSteps,
+                plan.warnings());
+    }
+
+    private PlanStep augmentLookupFactsStep(PlanStep step, List<String> requiredFactKeys) {
+        if (step.toolType() != ToolType.LOOKUP_FACTS
+                || !(step.input() instanceof LookupFactsInput lookupFactsInput)) {
+            return step;
+        }
+
+        LinkedHashSet<String> mergedFactKeys = new LinkedHashSet<>(lookupFactsInput.factKeys());
+        mergedFactKeys.addAll(requiredFactKeys);
+        if (mergedFactKeys.size() == lookupFactsInput.factKeys().size()) {
+            return step;
+        }
+
+        return new PlanStep(
+                step.stepId(),
+                step.toolType(),
+                new LookupFactsInput(lookupFactsInput.disclosureIdsFrom(), List.copyOf(mergedFactKeys)),
+                step.dependsOn());
     }
 
     private Optional<PolicyMatch> matchPolicy(QuestionPlan plan, String question) {

@@ -147,6 +147,19 @@ class OrchestrationAnswerRealDataIntegrationTest {
     }
 
     @Test
+    void HCX가_비교대상_factKey를_빠뜨려도_필수_fact를_보강해_COMPLETED로_처리한다() {
+        when(hcxPlanGenerator.generatePlan(goldenCase.question()))
+                .thenReturn(goldenPlanCandidateMissingEquityRatio());
+
+        AnswerResult result = service.getAnswer(command());
+
+        assertThat(result.outcome()).isEqualTo(AnswerOutcome.COMPLETED);
+        assertThat(result.calculations()).hasSize(1);
+        assertThat(result.calculations().getFirst().verdict())
+                .isEqualTo(CalculationVerdict.MATCH);
+    }
+
+    @Test
     void GET_answer는_실제_데이터_경로에서도_5개_키_계약을_지킨다() throws Exception {
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new EvaluationAnswerController(service)).build();
 
@@ -220,6 +233,44 @@ class OrchestrationAnswerRealDataIntegrationTest {
                         List.of("facility.amount", "facility.equity_amount", "facility.equity_ratio",
                                 "facility.purpose", "facility.target", "facility.start_date",
                                 "facility.end_date", "facility.decision_date"))),
+                List.of("s1"));
+        PlanStepCandidate calculate = new PlanStepCandidate(
+                "s3",
+                ToolType.CALCULATE,
+                objectMapper.valueToTree(new CalculateInput(
+                        "s2",
+                        CalculationOperation.RATIO,
+                        List.of("facility.amount", "facility.equity_amount"))),
+                List.of("s2"));
+
+        return new QuestionPlanCandidate(
+                1L,
+                List.of(goldenCase.companyName()),
+                new PlanTimeCandidate(decisionMonth, decisionMonth, decisionDate.toString()),
+                Set.of(),
+                List.of(searchDisclosures, lookupFacts, calculate),
+                List.of());
+    }
+
+    // 실 HCX가 계산 입력 fact(facility.amount/equity_amount)만 요청하고 비교 대상인
+    // facility.equity_ratio를 LOOKUP_FACTS factKeys에서 빠뜨리는 경우를 그대로 재현한다.
+    private QuestionPlanCandidate goldenPlanCandidateMissingEquityRatio() {
+        String monthStart = decisionDate.withDayOfMonth(1).toString();
+        String monthEnd = decisionDate.withDayOfMonth(decisionDate.lengthOfMonth()).toString();
+        DateRangeCandidate decisionMonth = new DateRangeCandidate(monthStart, monthEnd);
+
+        PlanStepCandidate searchDisclosures = new PlanStepCandidate(
+                "s1",
+                ToolType.SEARCH_DISCLOSURES,
+                objectMapper.valueToTree(new SearchDisclosuresInput(
+                        List.of(DisclosureCategory.EXCHANGE), List.of("신규시설투자등"), List.of(), 10)),
+                List.of());
+        PlanStepCandidate lookupFacts = new PlanStepCandidate(
+                "s2",
+                ToolType.LOOKUP_FACTS,
+                objectMapper.valueToTree(new LookupFactsInput(
+                        "s1",
+                        List.of("facility.amount", "facility.equity_amount", "facility.purpose"))),
                 List.of("s1"));
         PlanStepCandidate calculate = new PlanStepCandidate(
                 "s3",
