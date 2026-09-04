@@ -19,10 +19,6 @@ public class DisclosureDocumentParserRouter {
         this.xmlParser = xmlParser;
         this.htmlParser = htmlParser;
         this.pdfParser = pdfParser;
-
-    public DisclosureDocumentParserRouter(DartXmlDisclosureParser xmlParser, DartHtmlDisclosureParser htmlParser) {
-        this.xmlParser = xmlParser;
-        this.htmlParser = htmlParser;
     }
 
     public DisclosureDocumentParser select(DisclosureDocument document) {
@@ -45,7 +41,6 @@ public class DisclosureDocumentParserRouter {
                 yield pdfParser;
             }
             case UNKNOWN -> throw new IllegalArgumentException(
-            case PDF, UNKNOWN -> throw new IllegalArgumentException(
                     "지원하지 않는 원문 형식입니다: " + document.getContentFormat());
         };
     }

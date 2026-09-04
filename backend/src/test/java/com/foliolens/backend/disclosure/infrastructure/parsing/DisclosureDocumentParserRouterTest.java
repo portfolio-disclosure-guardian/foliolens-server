@@ -12,7 +12,6 @@ class DisclosureDocumentParserRouterTest {
     private final com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextDisclosureParser pdf =
             mock(com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextDisclosureParser.class);
     private final DisclosureDocumentParserRouter router = new DisclosureDocumentParserRouter(xml, html, pdf);
-    private final DisclosureDocumentParserRouter router = new DisclosureDocumentParserRouter(xml, html);
 
     @Test void routesByContentFormatNotXmlExtension() {
         assertThat(router.select(document(DisclosureDocumentContentFormat.HTML, "exchange", DisclosureDocumentRole.MAIN)))
@@ -28,7 +27,7 @@ class DisclosureDocumentParserRouterTest {
                 .isSameAs(pdf);
         assertThatThrownBy(() -> router.select(document(DisclosureDocumentContentFormat.PDF, "exchange", DisclosureDocumentRole.MAIN)))
                 .hasMessageContaining("정기공시");
-        assertThatThrownBy(() -> router.select(document(DisclosureDocumentContentFormat.PDF, "periodic", DisclosureDocumentRole.MAIN)))
+        assertThatThrownBy(() -> router.select(document(DisclosureDocumentContentFormat.UNKNOWN, "periodic", DisclosureDocumentRole.MAIN)))
                 .hasMessageContaining("지원하지");
         assertThatThrownBy(() -> router.select(document(DisclosureDocumentContentFormat.DART_XML, "exchange", DisclosureDocumentRole.MAIN)))
                 .hasMessageContaining("충돌");

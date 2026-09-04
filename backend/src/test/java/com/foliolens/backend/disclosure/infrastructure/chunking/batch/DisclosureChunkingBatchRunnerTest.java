@@ -187,8 +187,6 @@ class DisclosureChunkingBatchRunnerTest {
                 mock(DisclosureChunkingBatchService.class), 5, 5, 1,
                 DisclosureDocumentContentFormat.UNKNOWN, null))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("DART_XML, HTML 또는 PDF");
-                DisclosureDocumentContentFormat.PDF, null))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("DART_XML 또는 HTML");
     }
 
     @Test
