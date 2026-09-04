@@ -20,7 +20,9 @@ import lombok.RequiredArgsConstructor;
 public class EvaluationAnswerController {
     private final OrchestrationAnswerService disclosureAnswerService;
 
-    @GetMapping("/answer")
+    // Content-Type에 charset을 명시하지 않으면 일부 HTTP 클라이언트가 비ASCII 응답을 UTF-8이 아닌
+    // 다른 인코딩(예: ISO-8859-1)으로 잘못 디코딩한다. 평가 질의가 전부 한국어이므로 명시적으로 고정한다.
+    @GetMapping(value = "/answer", produces = "application/json;charset=UTF-8")
     public ResponseEntity<EvaluationAnswerResponse> getAnswer(@RequestParam("question_id") @NotBlank String questionId,
             @RequestParam("question") @NotBlank String questionText) {
         var command = new AnswerQuestionCommand(
