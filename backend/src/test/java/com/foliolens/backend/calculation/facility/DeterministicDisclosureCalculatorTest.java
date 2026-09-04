@@ -16,11 +16,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class DeterministicDisclosureCalculatorTest {
 
+    private static final String DISCLOSURE_1 = "disclosure-1";
+    private static final String DISCLOSURE_2 = "disclosure-2";
+
     private final DeterministicDisclosureCalculator calculator =
             new DeterministicDisclosureCalculator();
 
     @Test
     void 골든_케이스_비율을_재계산해_공시값과_일치를_판정한다() {
+        // 공시비율 원문이 "9.90"(소수 둘째 자리)이므로 재계산값도 둘째 자리로
+        // 반올림해 비교한다(docs/finance_domain/02.신규시설투자.md의
+        // FACILITY_EQUITY_RATIO_CHECK).
         CalculationResult result = calculator.calculate(
                 command(true),
                 List.of(
@@ -35,11 +41,32 @@ class DeterministicDisclosureCalculatorTest {
         );
 
         assertThat(result.verdict()).isEqualTo(CalculationVerdict.MATCH);
-        assertThat(result.displayValue()).isEqualTo("9.9");
+        assertThat(result.displayValue()).isEqualTo("9.90");
         assertThat(result.disclosedValue()).isEqualTo("9.90");
         assertThat(result.unit()).isEqualTo("%");
         assertThat(result.inputFactIds())
                 .containsExactly("amount-1", "equity-1");
+    }
+
+    @Test
+    void 공시비율의_소수_자릿수가_다르면_반올림_기준도_따라간다() {
+        // 같은 재계산값(약 9.8987%)이라도 공시 표시 자릿수가 1자리("9.9")면
+        // 1자리로, 2자리("9.90")면 2자리로 반올림 기준이 달라진다.
+        CalculationResult oneDigit = calculator.calculate(
+                command(true),
+                List.of(
+                        fact("amount-1", "facility.amount", "5296200000000"),
+                        fact(
+                                "equity-1",
+                                "facility.equity_amount",
+                                "53503752397611"
+                        ),
+                        fact("ratio-1", "facility.equity_ratio", "9.9")
+                )
+        );
+
+        assertThat(oneDigit.displayValue()).isEqualTo("9.9");
+        assertThat(oneDigit.verdict()).isEqualTo(CalculationVerdict.MATCH);
     }
 
     @Test
@@ -87,6 +114,105 @@ class DeterministicDisclosureCalculatorTest {
         assertThat(result.verdict())
                 .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
         assertThat(result.verdictReason()).contains("facility.equity_amount");
+    }
+
+    @Test
+    void 검증되지_않은_Fact는_계산에_사용하지_않는다() {
+        CalculationResult result = calculator.calculate(
+                command(true),
+                List.of(
+                        fact("amount-1", "facility.amount", "1000"),
+                        fact(
+                                "equity-1",
+                                "facility.equity_amount",
+                                "10000",
+                                DISCLOSURE_1,
+                                "KRW",
+                                FactValidationStatus.UNVALIDATED
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("VERIFIED");
+    }
+
+    @Test
+    void 다른_공시의_Fact는_함께_계산하지_않는다() {
+        CalculationResult result = calculator.calculate(
+                command(true),
+                List.of(
+                        fact("amount-1", "facility.amount", "1000"),
+                        fact(
+                                "equity-1",
+                                "facility.equity_amount",
+                                "10000",
+                                DISCLOSURE_2,
+                                "KRW",
+                                FactValidationStatus.VERIFIED
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("같은 공시");
+    }
+
+    @Test
+    void KRW_단위가_아니면_계산하지_않는다() {
+        CalculationResult result = calculator.calculate(
+                command(true),
+                List.of(
+                        fact("amount-1", "facility.amount", "1000"),
+                        fact(
+                                "equity-1",
+                                "facility.equity_amount",
+                                "10000",
+                                DISCLOSURE_1,
+                                "USD",
+                                FactValidationStatus.VERIFIED
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("KRW");
+    }
+
+    @Test
+    void 같은_factKey가_여러개면_임의로_선택하지_않는다() {
+        CalculationResult result = calculator.calculate(
+                command(true),
+                List.of(
+                        fact("amount-1", "facility.amount", "1000"),
+                        fact("amount-2", "facility.amount", "2000"),
+                        fact("equity-1", "facility.equity_amount", "10000")
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("여러 개");
+    }
+
+    @Test
+    void 공시비율_factKey가_여러개면_비교하지_않고_계산은_유지한다() {
+        CalculationResult result = calculator.calculate(
+                command(true),
+                List.of(
+                        fact("amount-1", "facility.amount", "1000"),
+                        fact("equity-1", "facility.equity_amount", "10000"),
+                        fact("ratio-1", "facility.equity_ratio", "10.0"),
+                        fact("ratio-2", "facility.equity_ratio", "20.0")
+                )
+        );
+
+        assertThat(result.verdict()).isEqualTo(CalculationVerdict.NOT_COMPARABLE);
+        assertThat(result.rawResult()).isNotNull();
+        assertThat(result.verdictReason()).contains("여러 개");
     }
 
     @Test
@@ -142,7 +268,8 @@ class DeterministicDisclosureCalculatorTest {
 
     @Test
     void HALF_UP_반올림_경계값을_처리한다() {
-        // 199 / 2000 * 100 = 9.95 (첫째 자리 기준 동점) -> HALF_UP으로 10.0
+        // 199 / 2000 * 100 = 9.95 (공시비율이 "10.0"으로 1자리이므로 그 기준으로
+        // 반올림) -> HALF_UP으로 10.0
         CalculationResult result = calculator.calculate(
                 command(true),
                 List.of(
@@ -181,21 +308,44 @@ class DeterministicDisclosureCalculatorTest {
         );
     }
 
-    private RetrievedFact fact(String factId, String factKey, String normalizedValue) {
+    private RetrievedFact fact(
+            String factId,
+            String factKey,
+            String normalizedValue
+    ) {
+        String unit = "facility.equity_ratio".equals(factKey)
+                ? "PERCENT"
+                : "KRW";
+        return fact(
+                factId,
+                factKey,
+                normalizedValue,
+                DISCLOSURE_1,
+                unit,
+                FactValidationStatus.VERIFIED
+        );
+    }
+
+    private RetrievedFact fact(
+            String factId,
+            String factKey,
+            String normalizedValue,
+            String disclosureId,
+            String unit,
+            FactValidationStatus validationStatus
+    ) {
         return new RetrievedFact(
                 factId,
-                "disclosure-1",
+                disclosureId,
                 factKey,
                 FactValueType.DECIMAL,
                 normalizedValue,
                 normalizedValue,
-                factKey.equals("facility.amount")
-                        || factKey.equals("facility.equity_amount")
-                        ? "KRW" : "%",
+                unit,
                 null,
                 null,
                 List.of(),
-                FactValidationStatus.VERIFIED
+                validationStatus
         );
     }
 }

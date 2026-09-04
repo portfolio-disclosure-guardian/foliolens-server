@@ -70,6 +70,33 @@ class FacilityInvestmentEvidenceVerifierTest {
     }
 
     @Test
+    void CANDIDATE_상태가_아닌_Evidence는_검증하지_않는다() {
+        DisclosureEvidence alreadyVerified = tableCellEvidence(
+                FacilityInvestmentFactDefinition.AMOUNT,
+                "투자금액",
+                "5,296,200,000,000",
+                "원",
+                EvidenceStatus.VERIFIED
+        );
+        FacilityInvestmentEvidenceExtractionResult candidates =
+                singleCandidateResult(
+                        FacilityInvestmentFactDefinition.AMOUNT,
+                        alreadyVerified
+                );
+
+        FacilityInvestmentEvidenceVerificationResult result =
+                verifier.verify(candidates);
+
+        assertThat(result.isVerified(FacilityInvestmentFactDefinition.AMOUNT))
+                .isFalse();
+        assertThat(result.skipped())
+                .hasEntrySatisfying(
+                        FacilityInvestmentFactDefinition.AMOUNT,
+                        reason -> assertThat(reason).contains("CANDIDATE")
+                );
+    }
+
+    @Test
     void 후보가_둘_이상이면_승격하지_않는다() {
         DisclosureEvidence first = amountCandidate("5,296,200,000,000", "원");
         DisclosureEvidence second = amountCandidate("1,000,000,000", "원");
@@ -271,6 +298,22 @@ class FacilityInvestmentEvidenceVerifierTest {
             String rawValue,
             String rawUnit
     ) {
+        return tableCellEvidence(
+                definition,
+                rowLabel,
+                rawValue,
+                rawUnit,
+                EvidenceStatus.CANDIDATE
+        );
+    }
+
+    private DisclosureEvidence tableCellEvidence(
+            FacilityInvestmentFactDefinition definition,
+            String rowLabel,
+            String rawValue,
+            String rawUnit,
+            EvidenceStatus status
+    ) {
         return new DisclosureEvidence(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
@@ -293,7 +336,7 @@ class FacilityInvestmentEvidenceVerifierTest {
                         rawUnit,
                         null
                 ),
-                EvidenceStatus.CANDIDATE
+                status
         );
     }
 }

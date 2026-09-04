@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FacilityInvestmentFactGeneratorTest {
 
@@ -115,6 +116,39 @@ class FacilityInvestmentFactGeneratorTest {
         assertThat(linkedEvidenceId).isEqualTo(verifiedEvidence.evidenceId());
         assertThat(verifiedEvidence.location().tableRowIndex()).isEqualTo(2);
         assertThat(verifiedEvidence.location().tableCellIndex()).isEqualTo(2);
+    }
+
+    @Test
+    void Evidence의_공시나_문서가_전달받은_대상과_다르면_거부한다() {
+        UUID disclosureId = UUID.randomUUID();
+        UUID documentId = UUID.randomUUID();
+        UUID otherDisclosureId = UUID.randomUUID();
+        DisclosureEvidence verifiedEvidence = verifiedAmountEvidence(
+                otherDisclosureId,
+                documentId,
+                "5,296,200,000,000",
+                "원"
+        );
+        FacilityInvestmentEvidenceVerificationResult verification =
+                verificationResult(
+                        FacilityInvestmentFactDefinition.AMOUNT,
+                        verifiedEvidence,
+                        FactValueNormalizationResult.mapped(
+                                new DecimalFactValue(
+                                        new BigDecimal("5296200000000")
+                                ),
+                                "KRW"
+                        )
+                );
+
+        assertThatThrownBy(() -> generator.generate(
+                disclosureId,
+                documentId,
+                RECEIPT_NO,
+                verification
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("공시·문서·접수번호");
     }
 
     @Test

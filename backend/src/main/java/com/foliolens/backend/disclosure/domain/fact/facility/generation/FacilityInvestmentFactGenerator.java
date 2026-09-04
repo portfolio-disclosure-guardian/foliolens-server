@@ -82,6 +82,8 @@ public class FacilityInvestmentFactGenerator {
         FactValueNormalizationResult normalization =
                 verifiedEvidence.normalization();
 
+        requireSameSource(disclosureId, disclosureDocumentId, receiptNo, evidence);
+
         String normalizedUnit = normalization.normalizedUnit();
         String currency = "KRW".equals(normalizedUnit) ? "KRW" : null;
 
@@ -112,6 +114,24 @@ public class FacilityInvestmentFactGenerator {
                 POLICY_VERSION,
                 List.of(evidence.evidenceId())
         );
+    }
+
+    private void requireSameSource(
+            UUID disclosureId,
+            UUID disclosureDocumentId,
+            String receiptNo,
+            DisclosureEvidence evidence
+    ) {
+        if (!disclosureId.equals(evidence.disclosureId())
+                || !disclosureDocumentId.equals(
+                        evidence.disclosureDocumentId()
+                )
+                || !receiptNo.equals(evidence.receiptNo())) {
+            throw new IllegalArgumentException(
+                    "Evidence의 공시·문서·접수번호가 생성 대상과 다릅니다. "
+                            + "evidenceId=" + evidence.evidenceId()
+            );
+        }
     }
 
     private UUID deterministicFactId(

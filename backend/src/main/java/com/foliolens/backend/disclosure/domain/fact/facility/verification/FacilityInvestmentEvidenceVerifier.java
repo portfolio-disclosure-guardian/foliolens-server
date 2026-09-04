@@ -122,6 +122,10 @@ public class FacilityInvestmentEvidenceVerifier {
     }
 
     private String checkLocation(DisclosureEvidence evidence) {
+        if (evidence.status() != EvidenceStatus.CANDIDATE) {
+            return "CANDIDATE 상태의 Evidence만 검증할 수 있습니다: "
+                    + evidence.status();
+        }
         if (evidence.disclosureId() == null
                 || evidence.disclosureDocumentId() == null) {
             return "disclosureId 또는 disclosureDocumentId가 없습니다.";
