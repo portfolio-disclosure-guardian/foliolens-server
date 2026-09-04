@@ -192,6 +192,34 @@ class FacilityInvestmentEvidenceVerifierTest {
     }
 
     @Test
+    void FX_Fact는_원문_표_단위가_없어도_정규화_단위만_명확하면_승격한다() {
+        // FOREIGN_VALUE/DISCLOSED_FX_RATE는 "기타 투자판단과 관련한
+        // 중요사항" 서술 문장에서 뽑아내므로, 표 라벨에 "(원)" 같은
+        // 단위 표기가 애초에 없다(rawUnit=null). 정규화 결과 자체의
+        // 단위(USD/KRW_PER_USD)가 명확하면 그것으로 충분하다.
+        DisclosureEvidence candidate = tableCellEvidence(
+                FacilityInvestmentFactDefinition.FOREIGN_VALUE,
+                "기타 투자판단과 관련한 중요사항",
+                "- 상기 투자금액은 총 선가 USD 1,118,534,000에 이사회결의일 "
+                        + "2영업일 전 최초고시환율 1,263.1KRW/USD를 적용한 "
+                        + "금액입니다.",
+                null
+        );
+        FacilityInvestmentEvidenceExtractionResult candidates =
+                singleCandidateResult(
+                        FacilityInvestmentFactDefinition.FOREIGN_VALUE,
+                        candidate
+                );
+
+        FacilityInvestmentEvidenceVerificationResult result =
+                verifier.verify(candidates);
+
+        assertThat(result.isVerified(
+                FacilityInvestmentFactDefinition.FOREIGN_VALUE
+        )).isTrue();
+    }
+
+    @Test
     void 핵심_8개_후보가_모두_유일하면_모두_VERIFIED로_승격한다() {
         Map<FacilityInvestmentFactDefinition, List<DisclosureEvidence>> map =
                 new EnumMap<>(FacilityInvestmentFactDefinition.class);

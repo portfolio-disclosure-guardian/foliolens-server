@@ -18,6 +18,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -29,6 +30,25 @@ import java.util.UUID;
 public class FacilityInvestmentFactGenerator {
 
     public static final String POLICY_VERSION = "facility-fact-normalize-v1";
+
+    /**
+     * FOREIGN_VALUE/DISCLOSED_FX_RATE는 표 라벨의 "(원)" 같은 별도
+     * 단위 셀이 아니라 "기타 투자판단과 관련한 중요사항" 서술 문장
+     * 안에 단위가 함께 적혀 있어(예: "USD 1,118,534,000",
+     * "1,263.1KRW/USD") {@link DisclosureEvidence#value()}의
+     * rawUnit이 항상 비어 있다. AMOUNT_CORRECTION_BEFORE/AFTER는
+     * 정정공시 "정정사항" 비교표의 "2. 투자금액"처럼 라벨에 단위
+     * 표기가 아예 없을 때가 많다. {@link DisclosureFact}는 원문 기반
+     * DECIMAL Fact에 rawUnit을 요구하므로, 이 Fact들은 정규화 단계에서
+     * 이미 확정한 단위(normalizedUnit)를 그대로 rawUnit으로도 사용한다.
+     */
+    private static final Set<FacilityInvestmentFactDefinition>
+            RAW_UNIT_FROM_NORMALIZED = Set.of(
+                    FacilityInvestmentFactDefinition.FOREIGN_VALUE,
+                    FacilityInvestmentFactDefinition.DISCLOSED_FX_RATE,
+                    FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_BEFORE,
+                    FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_AFTER
+            );
 
     public FacilityInvestmentFactSet generate(
             UUID disclosureId,
@@ -86,6 +106,7 @@ public class FacilityInvestmentFactGenerator {
 
         String normalizedUnit = normalization.normalizedUnit();
         String currency = "KRW".equals(normalizedUnit) ? "KRW" : null;
+        String rawUnit = resolveRawUnit(definition, evidence, normalizedUnit);
 
         return new DisclosureFact(
                 deterministicFactId(
@@ -98,7 +119,7 @@ public class FacilityInvestmentFactGenerator {
                 definition.factKey(),
                 definition.valueType(),
                 evidence.value().rawValue(),
-                evidence.value().rawUnit(),
+                rawUnit,
                 normalization.normalizedValue(),
                 normalizedUnit,
                 currency,
@@ -114,6 +135,19 @@ public class FacilityInvestmentFactGenerator {
                 POLICY_VERSION,
                 List.of(evidence.evidenceId())
         );
+    }
+
+    private String resolveRawUnit(
+            FacilityInvestmentFactDefinition definition,
+            DisclosureEvidence evidence,
+            String normalizedUnit
+    ) {
+        if (evidence.value().rawUnit() != null) {
+            return evidence.value().rawUnit();
+        }
+        return RAW_UNIT_FROM_NORMALIZED.contains(definition)
+                ? normalizedUnit
+                : null;
     }
 
     private void requireSameSource(

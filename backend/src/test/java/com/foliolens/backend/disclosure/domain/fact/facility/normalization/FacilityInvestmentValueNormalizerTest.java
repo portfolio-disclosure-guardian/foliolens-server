@@ -322,4 +322,124 @@ class FacilityInvestmentValueNormalizerTest {
         assertThat(amount.normalizedUnit()).isEqualTo("KRW");
         assertThat(ratio.normalizedUnit()).isEqualTo("PERCENT");
     }
+
+    // ---- 외화금액·환율(FX) — "기타 투자판단과 관련한 중요사항"
+    // 서술 문장에서 정규식으로 뽑아낸다. 아래 문장은 실제 접수번호
+    // 20230214800345, 20231026800363, 20240926800370의 원문이다. ----
+
+    @Test
+    void 선가_문장에서_외화_투자금액을_뽑아낸다() {
+        FactValueNormalizationResult result = normalizer.normalizeForeignValue(
+                "- 상기 투자금액은 총 선가 USD 1,118,534,000에 이사회결의일 "
+                        + "2영업일 전 최초고시환율 1,263.1KRW/USD를 적용한 "
+                        + "금액입니다."
+        );
+
+        assertThat(result.mapped()).isTrue();
+        assertThat(result.normalizedValue())
+                .isEqualTo(new DecimalFactValue(new BigDecimal("1118534000")));
+        assertThat(result.normalizedUnit()).isEqualTo("USD");
+    }
+
+    @Test
+    void 매매기준율_문장에서_외화_투자금액과_환율을_뽑아낸다() {
+        String notes = "- 상기 \"2. 투자내역 - 투자금액\"은 USD 1,850,197,160에 "
+                + "이사회결의일인 2023년 10월 26일 서울외국환중개 최초고시 "
+                + "매매기준율(1,347.00 KRW/USD)을 적용하여 원화환산한 "
+                + "금액입니다.";
+
+        FactValueNormalizationResult foreignValue =
+                normalizer.normalizeForeignValue(notes);
+        FactValueNormalizationResult rate =
+                normalizer.normalizeDisclosedFxRate(notes);
+        FactValueNormalizationResult currency =
+                normalizer.normalizeCurrencyCode(notes);
+
+        assertThat(foreignValue.normalizedValue())
+                .isEqualTo(new DecimalFactValue(
+                        new BigDecimal("1850197160")
+                ));
+        assertThat(rate.normalizedValue())
+                .isEqualTo(new DecimalFactValue(new BigDecimal("1347.00")));
+        assertThat(rate.normalizedUnit()).isEqualTo("KRW_PER_USD");
+        assertThat(currency.normalizedValue())
+                .isEqualTo(new CodeFactValue("USD"));
+    }
+
+    @Test
+    void 환율_숫자_없이_통화만_언급되면_환율은_UNMAPPED로_남긴다() {
+        // 20240926800370: 외화 원금(USD 93,846,633)은 있지만 환율은
+        // 숫자 없이 "USD환율을 적용한 금액임"으로만 서술됨.
+        String notes = "- 상기 '2. 투자내역 - 투자금액'은 총 투자금액은 "
+                + "USD 93,846,633이며 이사회 전일 USD환율을 적용한 금액임";
+
+        FactValueNormalizationResult foreignValue =
+                normalizer.normalizeForeignValue(notes);
+        FactValueNormalizationResult rate =
+                normalizer.normalizeDisclosedFxRate(notes);
+
+        assertThat(foreignValue.mapped()).isTrue();
+        assertThat(foreignValue.normalizedValue())
+                .isEqualTo(new DecimalFactValue(new BigDecimal("93846633")));
+        assertThat(rate.mapped()).isFalse();
+        assertThat(rate.normalizationStatus())
+                .isEqualTo(FactNormalizationStatus.UNMAPPED);
+    }
+
+    @Test
+    void 외화_서술이_없으면_모두_UNMAPPED로_남긴다() {
+        String notes = "- 상기 \"2.투자내역\"의 투자금액은 승인한도금액이며, "
+                + "물가 및 환율변동 등을 감안하여 예상금액의 130% 수준으로 "
+                + "설정하였습니다.";
+
+        assertThat(normalizer.normalizeForeignValue(notes).mapped()).isFalse();
+        assertThat(normalizer.normalizeDisclosedFxRate(notes).mapped())
+                .isFalse();
+        assertThat(normalizer.normalizeCurrencyCode(notes).mapped()).isFalse();
+    }
+
+    @Test
+    void 이_공시_투자금액과_무관한_문장의_USD_금액은_가져오지_않는다() {
+        // 실제 접수번호 20240612800420: 해외 계열회사(Hyosung HICO)의
+        // 별도 투자를 언급한 문장에 USD 금액이 있지만, 그 항목에는
+        // "투자금액"이라는 표현이 없다. 이 공시 자신의 투자금액에 대한
+        // 서술이 아니므로 오귀속하지 않아야 한다.
+        String notes = "- 본 투자건 이외에 당사의 해외 계열회사인 "
+                + "Hyosung HICO, Ltd.에서 USD 49백만(약669억원)\n"
+                + "의 멤피스공장 증설 투자를 진행할 예정임.";
+
+        assertThat(normalizer.normalizeForeignValue(notes).mapped()).isFalse();
+        assertThat(normalizer.normalizeDisclosedFxRate(notes).mapped())
+                .isFalse();
+        assertThat(normalizer.normalizeCurrencyCode(notes).mapped()).isFalse();
+    }
+
+    @Test
+    void 투자금액_항목만_골라_외화_금액을_찾는다() {
+        // 같은 노트 칸 안에 무관한 USD 문장과 실제 투자금액 문장이
+        // 함께 있어도, "투자금액"을 언급한 항목에서만 값을 가져온다.
+        String notes = "- 본 투자건 이외에 당사의 해외 계열회사에서 "
+                + "USD 49백만의 별도 투자를 진행할 예정임.\n"
+                + "- 상기 투자금액은 총 선가 USD 1,118,534,000에 "
+                + "이사회결의일 2영업일 전 최초고시환율 1,263.1KRW/USD를 "
+                + "적용한 금액입니다.";
+
+        FactValueNormalizationResult result =
+                normalizer.normalizeForeignValue(notes);
+
+        assertThat(result.mapped()).isTrue();
+        assertThat(result.normalizedValue())
+                .isEqualTo(new DecimalFactValue(new BigDecimal("1118534000")));
+    }
+
+    @Test
+    void 외화금액이_빈값이면_MISSING으로_처리한다() {
+        assertThat(normalizer.normalizeForeignValue("   ").normalizationStatus())
+                .isEqualTo(FactNormalizationStatus.MISSING);
+        assertThat(normalizer.normalizeDisclosedFxRate(null)
+                .normalizationStatus())
+                .isEqualTo(FactNormalizationStatus.MISSING);
+        assertThat(normalizer.normalizeCurrencyCode("").normalizationStatus())
+                .isEqualTo(FactNormalizationStatus.MISSING);
+    }
 }

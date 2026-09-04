@@ -13,6 +13,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Fact 정의별 CANDIDATE Evidence가 정확히 하나이고, 자료형·단위가 명확할
@@ -23,6 +24,24 @@ import java.util.Objects;
  * {@code evidenceId}와 원문 위치를 유지한다.
  */
 public class FacilityInvestmentEvidenceVerifier {
+
+    /**
+     * "기타 투자판단과 관련한 중요사항" 서술형 문장에서 정규식으로
+     * 뽑아내는 DECIMAL Fact와, 정정공시 "정정사항" 비교표(정정항목 |
+     * 정정전 | 정정후)에서 뽑아내는 정정 전/후 금액 Fact. 둘 다 값 셀과
+     * 짝을 이루는 행 레이블에 "(원)"·"(%)" 같은 단위 표기가 항상 있는
+     * 것은 아니므로(정정사항 표는 "2. 투자금액"처럼 단위 없이 나올 때가
+     * 많다), 다른 DECIMAL Fact처럼 원문 단위(rawUnit)까지 요구하지
+     * 않는다. 정규화 결과 자체의 단위(normalizedUnit)가 명확한지는
+     * 그대로 검사한다.
+     */
+    private static final Set<FacilityInvestmentFactDefinition>
+            RAW_UNIT_NOT_REQUIRED = Set.of(
+                    FacilityInvestmentFactDefinition.FOREIGN_VALUE,
+                    FacilityInvestmentFactDefinition.DISCLOSED_FX_RATE,
+                    FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_BEFORE,
+                    FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_AFTER
+            );
 
     private final FacilityInvestmentValueNormalizer normalizer;
 
@@ -104,8 +123,13 @@ public class FacilityInvestmentEvidenceVerifier {
             return;
         }
         if (definition.valueType() == FactValueType.DECIMAL
-                && (candidate.value().rawUnit() == null
-                || normalization.normalizedUnit() == null)) {
+                && normalization.normalizedUnit() == null) {
+            skipped.put(definition, "단위가 명확하지 않습니다.");
+            return;
+        }
+        if (definition.valueType() == FactValueType.DECIMAL
+                && candidate.value().rawUnit() == null
+                && !RAW_UNIT_NOT_REQUIRED.contains(definition)) {
             skipped.put(definition, "단위가 명확하지 않습니다.");
             return;
         }

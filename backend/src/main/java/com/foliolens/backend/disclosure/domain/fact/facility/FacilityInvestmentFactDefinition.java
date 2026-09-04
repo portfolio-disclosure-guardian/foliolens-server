@@ -94,6 +94,73 @@ public enum FacilityInvestmentFactDefinition {
                     "결정일"
             ),
             Set.of()
+    ),
+    // 아래 3개는 별도 표 행이 아니라 "기타 투자판단과 관련한 중요사항"
+    // 서술형 칸의 자유 문장에서 정규식으로 값을 뽑아낸다(라벨-값 표
+    // 매칭이 아니므로 원문에 해당 서술이 없으면 정규화 단계에서
+    // UNMAPPED로 남는다). 원문 표 라벨에 단위(원|%등)가 없어 core 8개와
+    // 같은 "원문 단위 명시" 요건은 검증기에서 예외로 둔다.
+    FOREIGN_VALUE(
+            "facility.amount.foreign_value",
+            FactValueType.DECIMAL,
+            "USD",
+            false,
+            Set.of("기타 투자판단과 관련한 중요사항", "기타 투자판단에 참고할 사항"),
+            Set.of()
+    ),
+    CURRENCY_CODE(
+            "facility.amount.currency_code",
+            FactValueType.CODE,
+            null,
+            false,
+            Set.of("기타 투자판단과 관련한 중요사항", "기타 투자판단에 참고할 사항"),
+            Set.of()
+    ),
+    DISCLOSED_FX_RATE(
+            "facility.amount.disclosed_fx_rate",
+            FactValueType.DECIMAL,
+            "KRW_PER_USD",
+            false,
+            Set.of("기타 투자판단과 관련한 중요사항", "기타 투자판단에 참고할 사항"),
+            Set.of()
+    ),
+    // 아래 4개는 정정공시의 "정정사항" 비교표(정정항목 | 정정전 | 정정후)
+    // 에서만 나온다. 이 표는 한 "정정항목" 행에 값 셀이 두 개(정정전·
+    // 정정후)라 다른 정의처럼 rowLabels로 단일 값 셀을 매칭하지 않고,
+    // FacilityInvestmentEvidenceExtractor가 표 자체를 인식해 두 Fact를
+    // 함께 만든다. 그래서 rowLabels·columnLabels는 여기서 쓰지 않는다
+    // (빈 Set으로 두면 일반 행 매칭 경로에서는 항상 매칭되지 않는다).
+    AMOUNT_CORRECTION_BEFORE(
+            "correction.amount.before",
+            FactValueType.DECIMAL,
+            "KRW",
+            false,
+            Set.of(),
+            Set.of()
+    ),
+    AMOUNT_CORRECTION_AFTER(
+            "correction.amount.after",
+            FactValueType.DECIMAL,
+            "KRW",
+            false,
+            Set.of(),
+            Set.of()
+    ),
+    END_DATE_CORRECTION_BEFORE(
+            "correction.end_date.before",
+            FactValueType.DATE,
+            "ISO_DATE",
+            false,
+            Set.of(),
+            Set.of()
+    ),
+    END_DATE_CORRECTION_AFTER(
+            "correction.end_date.after",
+            FactValueType.DATE,
+            "ISO_DATE",
+            false,
+            Set.of(),
+            Set.of()
     );
 
     private final String factKey;
