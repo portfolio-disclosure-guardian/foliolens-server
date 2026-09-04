@@ -40,6 +40,7 @@ import com.foliolens.backend.question.plan.ToolType;
 import com.foliolens.backend.question.plan.candidate.QuestionPlanCandidate;
 import com.foliolens.backend.question.plan.confirmation.PlanStep;
 import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
+import com.foliolens.backend.question.plan.confirmation.ResolvedCompanyRef;
 import com.foliolens.backend.question.plan.toolinput.LookupFactsInput;
 import com.foliolens.backend.question.plan.toolinput.SearchDisclosuresInput;
 import com.foliolens.backend.question.service.QuestionRunService;
@@ -438,21 +439,29 @@ public class OrchestrationAnswerService {
         }
 
         AnswerPolicy policy = matches.getFirst();
-        Optional<GoldenCase> exactQuestion = policy.goldenCases().stream()
-                .filter(goldenCase -> goldenCase.question().equals(question))
-                .findFirst();
-        if (exactQuestion.isPresent()) {
-            return Optional.of(new PolicyMatch(policy, exactQuestion.get()));
-        }
         if (policy.goldenCases().isEmpty()) {
             return Optional.empty();
         }
-        if (policy.goldenCases().size() > 1) {
-            throw new IllegalStateException("질문에 적용할 골든 케이스를 하나로 결정할 수 없습니다.");
-        }
-        // ponytail: 현재 실행 정책은 검증 fixture가 하나다. 복수 fixture가 승인되면
-        // 골든 기대값과 일반 정책 검증을 분리해 이 단일-case fallback을 제거한다.
-        return Optional.of(new PolicyMatch(policy, policy.goldenCases().getFirst()));
+        return Optional.of(new PolicyMatch(policy, selectGoldenCase(policy, plan, question)));
+    }
+
+    // 골든 케이스가 여러 회사로 늘어나도 특정 회사 전용 케이스가 다른 회사 질문을
+    // 막지 않도록 질문 정확 일치 → 계획에 해소된 회사명 일치 → 첫 케이스 순으로 고른다.
+    // criticalErrors 외에는 goldenCase 값을 실제 답변 생성·계산에 쓰지 않으므로
+    // (AnswerSafetyValidator 참고) 회사명이 일치하지 않아도 첫 케이스로 안전하게 대체한다.
+    private GoldenCase selectGoldenCase(AnswerPolicy policy, QuestionPlan plan, String question) {
+        return policy.goldenCases().stream()
+                .filter(goldenCase -> goldenCase.question().equals(question))
+                .findFirst()
+                .or(() -> {
+                    Set<String> resolvedCompanyNames = plan.companies().stream()
+                            .map(ResolvedCompanyRef::companyName)
+                            .collect(java.util.stream.Collectors.toSet());
+                    return policy.goldenCases().stream()
+                            .filter(goldenCase -> resolvedCompanyNames.contains(goldenCase.companyName()))
+                            .findFirst();
+                })
+                .orElseGet(() -> policy.goldenCases().getFirst());
     }
 
     private AnswerResult placeholder(QuestionRun run) {

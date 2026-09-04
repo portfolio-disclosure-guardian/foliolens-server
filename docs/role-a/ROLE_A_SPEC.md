@@ -315,7 +315,7 @@ DisclosureCalculator.calculate(CalculationCommand, List<RetrievedFact>) -> Calcu
 | A5 | 한 질문 fake 수직 연결(DONE) | fake HCX·retriever·calculator로 완료·부분·불가·실패 시나리오 통과 |
 | A6 | HCX 최소 연동(DONE) | 계획·답변 구조화 출력 schema와 timeout 연동 테스트 통과 |
 | A7 | 검증·신뢰성·추적(DONE) | 참조 무결성, 금지 표현, deadline, retry, 세 ID·처리시간·버전·오류 코드, run 전이와 redaction 테스트 통과 |
-| A8 | 실제 데이터 연결 | exchange HTML fact/evidence/calculation adapter로 기준 질문 통과 |
+| A8 | 실제 데이터 연결(DONE) | exchange HTML fact/evidence/calculation adapter로 기준 질문 통과 |
 | A9 | 제출 환경 | 새 DB Docker 기동, readiness, 대표 질문 smoke와 README 명령 재현 |
 
 첫 범위를 통과하기 전 비교·이력의 범위 확장, P1/P2, cache, 비동기 API와 범용 workflow framework를 추가하지 않는다.

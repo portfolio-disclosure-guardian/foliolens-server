@@ -108,12 +108,14 @@ class OrchestrationAnswerServiceTest {
         service = newService(false);
     }
 
-    private static CompanyRepository companyRepositoryResolving(String companyName) {
-        Company company = mock(Company.class);
-        when(company.getId()).thenReturn(UUID.randomUUID());
-        when(company.getCorpName()).thenReturn(companyName);
+    private static CompanyRepository companyRepositoryResolving(String... companyNames) {
         CompanyRepository companyRepository = mock(CompanyRepository.class);
-        when(companyRepository.findByCorpName(companyName)).thenReturn(List.of(company));
+        for (String companyName : companyNames) {
+            Company company = mock(Company.class);
+            when(company.getId()).thenReturn(UUID.randomUUID());
+            when(company.getCorpName()).thenReturn(companyName);
+            when(companyRepository.findByCorpName(companyName)).thenReturn(List.of(company));
+        }
         return companyRepository;
     }
 
@@ -205,6 +207,55 @@ class OrchestrationAnswerServiceTest {
         assertEquals(AnswerOutcome.UNANSWERABLE, result.outcome());
         assertEquals("답변 생성 기능이 아직 연결되지 않았습니다.", result.renderedAnswer());
         verifyNoInteractions(hcxAnswerGenerator);
+    }
+
+    @Test
+    void 다른_회사_질문에는_다른_회사_골든_케이스의_criticalErrors가_적용되지_않는다() {
+        GoldenCase celltrion = GoldFacility001Fixture.policy().goldenCases().stream()
+                .filter(gc -> gc.companyName().equals("셀트리온"))
+                .findFirst().orElseThrow();
+        String question = celltrion.question();
+        String skOnlyCriticalError = goldenCase.criticalErrors().get(3);
+        setUpCompanyQuestion(question, celltrion.companyName());
+        when(hcxAnswerGenerator.generateAnswer(eq(question), any(), any(), any(), eq(AnswerOutcome.COMPLETED)))
+                .thenReturn("셀트리온 답변입니다. " + skOnlyCriticalError);
+
+        AnswerResult result = service.getAnswer(command("OTHER-COMPANY-001", question));
+
+        assertEquals(AnswerOutcome.COMPLETED, result.outcome());
+    }
+
+    @Test
+    void 다른_회사_질문에는_해당_회사_골든_케이스의_criticalErrors가_적용된다() {
+        GoldenCase celltrion = GoldFacility001Fixture.policy().goldenCases().stream()
+                .filter(gc -> gc.companyName().equals("셀트리온"))
+                .findFirst().orElseThrow();
+        String question = celltrion.question();
+        String ownCriticalError = celltrion.criticalErrors().get(3);
+        setUpCompanyQuestion(question, celltrion.companyName());
+        when(hcxAnswerGenerator.generateAnswer(eq(question), any(), any(), any(), eq(AnswerOutcome.COMPLETED)))
+                .thenReturn("셀트리온 답변입니다. " + ownCriticalError);
+
+        BusinessException failure = assertThrows(
+                BusinessException.class,
+                () -> service.getAnswer(command("OTHER-COMPANY-002", question)));
+
+        assertEquals(ErrorCode.AGENT_502_1, failure.getErrorCode());
+    }
+
+    private void setUpCompanyQuestion(String question, String companyName) {
+        QuestionRun otherRun = mock(QuestionRun.class);
+        when(otherRun.getId()).thenReturn(UUID.randomUUID());
+        when(otherRun.getQuestionText()).thenReturn(question);
+        when(questionRunService.createQuestionRun(
+                anyString(), anyString(), eq(question), eq(RequestChannel.EVALUATION)))
+                .thenReturn(otherRun);
+        when(hcxPlanGenerator.generatePlan(eq(question)))
+                .thenReturn(facilityPlanCandidate(companyName, "신규시설투자등"));
+        questionPlanConverter = new QuestionPlanConverter(
+                companyRepositoryResolving(goldenCase.companyName(), companyName),
+                JsonMapper.builder().build(), 1, 50);
+        service = newService(false);
     }
 
     @Test
@@ -377,11 +428,26 @@ class OrchestrationAnswerServiceTest {
     }
 
     private AnswerQuestionCommand command(String externalQuestionId) {
+        return command(externalQuestionId, goldenCase.question());
+    }
+
+    private AnswerQuestionCommand command(String externalQuestionId, String question) {
         return new AnswerQuestionCommand(
                 externalQuestionId,
-                goldenCase.question(),
+                question,
                 RequestChannel.EVALUATION,
                 requestId);
+    }
+
+    private QuestionPlanCandidate facilityPlanCandidate(String companyName, String subtype) {
+        QuestionPlanCandidate base = facilityPlanCandidate(subtype);
+        return new QuestionPlanCandidate(
+                base.schemaVersion(),
+                List.of(companyName),
+                base.time(),
+                base.interestCodes(),
+                base.steps(),
+                base.ambiguities());
     }
 
     private QuestionPlanCandidate facilityPlanCandidate(String subtype) {
