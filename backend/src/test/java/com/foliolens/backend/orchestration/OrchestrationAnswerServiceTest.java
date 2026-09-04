@@ -44,9 +44,11 @@ import com.foliolens.backend.disclosure.domain.fact.FactValidationStatus;
 import com.foliolens.backend.evaluation.controller.EvaluationAnswerController;
 import com.foliolens.backend.global.exception.BusinessException;
 import com.foliolens.backend.global.exception.ErrorCode;
+import com.foliolens.backend.policy.AnswerPolicy;
 import com.foliolens.backend.policy.FinanceDomainAnswerPolicies;
 import com.foliolens.backend.policy.GoldFacility001Fixture;
 import com.foliolens.backend.policy.GoldenCase;
+import com.foliolens.backend.policy.GoldenCaseApprovalStatus;
 import com.foliolens.backend.question.AnswerQuestionCommand;
 import com.foliolens.backend.question.RequestChannel;
 import com.foliolens.backend.question.entity.QuestionRun;
@@ -128,6 +130,28 @@ class OrchestrationAnswerServiceTest {
 
     private OrchestrationAnswerService newService(
             boolean requireApprovedGoldenCase,
+            List<AnswerPolicy> policies) {
+        return newService(
+                requireApprovedGoldenCase,
+                policies,
+                FakeDisclosureRetriever.complete(),
+                30_000);
+    }
+
+    private OrchestrationAnswerService newService(
+            boolean requireApprovedGoldenCase,
+            DisclosureRetriever disclosureRetriever,
+            long deadlineMillis) {
+        return newService(
+                requireApprovedGoldenCase,
+                List.of(FinanceDomainAnswerPolicies.type08(), GoldFacility001Fixture.policy()),
+                disclosureRetriever,
+                deadlineMillis);
+    }
+
+    private OrchestrationAnswerService newService(
+            boolean requireApprovedGoldenCase,
+            List<AnswerPolicy> policies,
             DisclosureRetriever disclosureRetriever,
             long deadlineMillis) {
         return new OrchestrationAnswerService(
@@ -140,11 +164,39 @@ class OrchestrationAnswerServiceTest {
                 hcxPlanGenerator,
                 questionPlanConverter,
                 hcxAnswerGenerator,
-                List.of(FinanceDomainAnswerPolicies.type08(), GoldFacility001Fixture.policy()),
+                policies,
                 requireApprovedGoldenCase,
                 deadlineMillis,
                 "contest-test-v1",
                 "HCX-TEST");
+    }
+
+    // GoldFacility001Fixture의 골든 케이스가 모두 APPROVED로 승인된 뒤에도
+    // 승인 강제(requireApprovedGoldenCase) 동작 자체는 검증할 수 있도록 둔
+    // 테스트 전용 C_REVIEW_PENDING 케이스. 운영 fixture를 되돌리지 않는다.
+    private AnswerPolicy pendingApprovalPolicy() {
+        AnswerPolicy approved = GoldFacility001Fixture.policy();
+        GoldenCase pendingCase = new GoldenCase(
+                goldenCase.goldenCaseId(),
+                goldenCase.question(),
+                goldenCase.companyName(),
+                goldenCase.receiptNo(),
+                goldenCase.expectedNormalizedFacts(),
+                goldenCase.expectedRawResult(),
+                goldenCase.expectedDisplayValue(),
+                goldenCase.expectedVerdict(),
+                goldenCase.expectedOutcome(),
+                goldenCase.expectedAnswer(),
+                goldenCase.criticalErrors(),
+                GoldenCaseApprovalStatus.C_REVIEW_PENDING);
+        return new AnswerPolicy(
+                approved.policyVersion(),
+                approved.disclosureSubtype(),
+                approved.facts(),
+                approved.calculations(),
+                approved.allowedExpressions(),
+                approved.forbiddenExpressions(),
+                List.of(pendingCase));
     }
 
     @Test
@@ -277,7 +329,7 @@ class OrchestrationAnswerServiceTest {
 
     @Test
     void 승인_강제를_켜면_검토중인_골든_케이스는_placeholder로_처리한다() {
-        service = newService(true);
+        service = newService(true, List.of(pendingApprovalPolicy()));
 
         AnswerResult result = service.getAnswer(command());
 
