@@ -139,17 +139,30 @@ A8 실제 데이터 연결이 완료된 뒤에는 대표 질문, 평가 응답�
 
 ### 제출 프로필
 
-제출 환경은 개발용 Compose 위에 배치 실행을 모두 끄고 HCX와 버전을 필수화하는 오버레이를 적용한다.
+제출 환경은 개발용 Compose 위에 배치 실행을 모두 끄고 HCX와 버전을 필수화하는 오버레이를 적용한다. 심사 환경은 매번 빈 PostgreSQL에서 시작하므로, `app`을 올리기 전에 최신 덤프를 복원해 Flyway V12(`disclosure_facts`/`disclosure_evidences`)까지 채운 상태로 만들어야 한다. 덤프 파일(`backup/foliolens-db.dump`)은 저장소에 커밋하지 않으므로 팀에서 별도로 전달받거나, 데이터가 채워진 개발용 `db`에서 아래 명령으로 직접 만든다.
+
+```powershell
+# (선택) 데이터가 채워진 개발용 db 컨테이너에서 덤프 새로 만들기
+docker compose exec db pg_dump -U foliolens -Fc -d foliolens_snapshot_20260904 > backup\foliolens-db.dump
+```
 
 ```powershell
 Copy-Item .env.submission.example .env.submission
 # .env.submission의 비밀번호와 HCX_API_KEY를 실제 값으로 변경
 docker compose --env-file .env.submission -f compose.yaml -f compose.submission.yaml config --quiet
+
+# 빈 db를 먼저 띄우고 덤프를 복원한 뒤에 app을 올린다 (신규 볼륨일 때 1회)
+docker compose --env-file .env.submission -f compose.yaml -f compose.submission.yaml up -d db
+docker compose --env-file .env.submission -f compose.yaml -f compose.submission.yaml cp backup\foliolens-db.dump db:/tmp/foliolens-db.dump
+docker compose --env-file .env.submission -f compose.yaml -f compose.submission.yaml exec db pg_restore -U foliolens -d foliolens --no-owner --no-privileges /tmp/foliolens-db.dump
+
 docker compose --env-file .env.submission -f compose.yaml -f compose.submission.yaml up -d --build
 .\scripts\submission-smoke.ps1 -InfrastructureOnly
 ```
 
-제출 프로필은 승인된 골든 케이스만 실행한다. 현재 시설투자 fixture가 `C_REVIEW_PENDING`인 동안 전체 smoke가 placeholder로 실패하는 것은 의도된 상태다.
+`-U`/`-d` 값은 `.env.submission`의 `POSTGRES_USER`/`POSTGRES_DB`와 맞춘다(기본값 `foliolens`/`foliolens`).
+
+제출 프로필은 승인된 골든 케이스만 실행한다. 시설투자 골든 케이스 3건(SK하이닉스 `20240424800596`, 셀트리온 `20260324800030`, LG이노텍 `20251127800903`)은 모두 `APPROVED`로 반영되어 있으므로, 덤프에 해당 fact·evidence가 포함되어 있으면 전체 smoke가 placeholder 없이 통과해야 한다.
 
 ### Frontend
 
