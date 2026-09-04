@@ -12,10 +12,13 @@ import com.foliolens.backend.disclosure.infrastructure.search.DisclosureMetadata
 import com.foliolens.backend.disclosure.infrastructure.search.DisclosureMetadataSearchHit;
 import com.foliolens.backend.disclosure.infrastructure.search.DisclosureMetadataSearchResult;
 import com.foliolens.backend.disclosure.service.DisclosureChunkSearchService;
+import com.foliolens.backend.disclosure.service.DisclosureFactLookupResult;
+import com.foliolens.backend.disclosure.service.DisclosureFactLookupService;
 import com.foliolens.backend.disclosure.service.DisclosureMetadataSearchService;
 import com.foliolens.backend.question.plan.ToolType;
 import com.foliolens.backend.question.plan.confirmation.PlanStep;
 import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
+import com.foliolens.backend.question.plan.toolinput.LookupFactsInput;
 import com.foliolens.backend.question.plan.toolinput.SearchDisclosuresInput;
 import com.foliolens.backend.question.plan.toolinput.SearchEvidenceInput;
 import org.springframework.context.annotation.Profile;
@@ -31,25 +34,29 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * 검증된 QuestionPlan의 SEARCH_DISCLOSURES와 SEARCH_EVIDENCE step을
- * 실제 PostgreSQL 검색 서비스에 연결한다.
+ * 검증된 QuestionPlan의 SEARCH_DISCLOSURES, LOOKUP_FACTS,
+ * SEARCH_EVIDENCE step을 실제 PostgreSQL 검색 서비스에 연결한다.
  *
- * 아직 실제 구현이 없는 LOOKUP_FACTS, RESOLVE_DISCLOSURE_HISTORY,
- * CALCULATE는 실행했다고 표시하지 않고 경고로 남긴다.
+ * RESOLVE_DISCLOSURE_HISTORY와 CALCULATE는 이 Retriever의 책임이
+ * 아니므로 실행했다고 표시하지 않고 경고로 남긴다.
  */
 @Component
 @Profile("!fake-retrieval")
 public class DefaultDisclosureRetriever implements DisclosureRetriever {
 
     public static final String RETRIEVAL_VERSION =
-            "question-plan-search-v1";
+            "question-plan-search-v2";
 
     private final DisclosureMetadataSearchService metadataSearchService;
     private final DisclosureChunkSearchService chunkSearchService;
+    private final DisclosureFactLookupService factLookupService;
+    private final DisclosureFactRetrievalMapper factRetrievalMapper;
 
     public DefaultDisclosureRetriever(
             DisclosureMetadataSearchService metadataSearchService,
-            DisclosureChunkSearchService chunkSearchService
+            DisclosureChunkSearchService chunkSearchService,
+            DisclosureFactLookupService factLookupService,
+            DisclosureFactRetrievalMapper factRetrievalMapper
     ) {
         this.metadataSearchService = Objects.requireNonNull(
                 metadataSearchService,
@@ -58,6 +65,14 @@ public class DefaultDisclosureRetriever implements DisclosureRetriever {
         this.chunkSearchService = Objects.requireNonNull(
                 chunkSearchService,
                 "chunkSearchService는 필수입니다."
+        );
+        this.factLookupService = Objects.requireNonNull(
+                factLookupService,
+                "factLookupService는 필수입니다."
+        );
+        this.factRetrievalMapper = Objects.requireNonNull(
+                factRetrievalMapper,
+                "factRetrievalMapper는 필수입니다."
         );
     }
 
@@ -75,6 +90,7 @@ public class DefaultDisclosureRetriever implements DisclosureRetriever {
                         step,
                         context
                 );
+                case LOOKUP_FACTS -> executeLookupFacts(step, context);
                 case SEARCH_EVIDENCE -> executeSearchEvidence(step, context);
                 default -> context.warnings.add(
                         "[" + step.stepId() + "] " + step.toolType()
@@ -85,6 +101,72 @@ public class DefaultDisclosureRetriever implements DisclosureRetriever {
         }
 
         return context.toResult();
+    }
+
+    private void executeLookupFacts(
+            PlanStep step,
+            ExecutionContext context
+    ) {
+        LookupFactsInput input = requireInput(step, LookupFactsInput.class);
+        DisclosureMetadataSearchResult source =
+                context.disclosureResults.get(input.disclosureIdsFrom());
+
+        if (source == null) {
+            throw new IllegalArgumentException(
+                    "[" + step.stepId() + "] disclosureIdsFrom이 실행된 "
+                            + "SEARCH_DISCLOSURES step을 가리키지 않습니다: "
+                            + input.disclosureIdsFrom()
+            );
+        }
+
+        Set<UUID> disclosureIds = source.items().stream()
+                .map(DisclosureMetadataSearchHit::disclosureId)
+                .collect(java.util.stream.Collectors.toCollection(
+                        LinkedHashSet::new
+                ));
+        DisclosureFactLookupResult result = factLookupService.lookup(
+                disclosureIds,
+                input.factKeys()
+        );
+
+        result.facts().stream()
+                .map(factRetrievalMapper::toRetrievedFact)
+                .forEach(fact -> context.verifiedFacts.putIfAbsent(
+                        fact.factId(),
+                        fact
+                ));
+        result.evidences().stream()
+                .map(factRetrievalMapper::toRetrievedEvidence)
+                .forEach(evidence -> context.verifiedEvidences.putIfAbsent(
+                        evidence.evidenceId(),
+                        evidence
+                ));
+
+        Map<UUID, DisclosureMetadataSearchHit> sourceMetadata =
+                source.items().stream().collect(
+                        java.util.stream.Collectors.toMap(
+                                DisclosureMetadataSearchHit::disclosureId,
+                                item -> item,
+                                (left, right) -> left,
+                                LinkedHashMap::new
+                        )
+                );
+        factRetrievalMapper.toRetrievedDocuments(
+                        result.evidences(),
+                        sourceMetadata
+                ).forEach(document -> context.verifiedDocuments.putIfAbsent(
+                        document.documentId(),
+                        document
+                ));
+
+        context.missingFactKeys.addAll(result.missingFactKeys());
+        context.executedSteps.add(step);
+        if (!result.missingFactKeys().isEmpty()) {
+            context.warnings.add(
+                    "[" + step.stepId() + "] VERIFIED Fact를 찾지 못한 key: "
+                            + String.join(", ", result.missingFactKeys())
+            );
+        }
     }
 
     private void executeSearchDisclosures(
@@ -246,8 +328,16 @@ public class DefaultDisclosureRetriever implements DisclosureRetriever {
                 new LinkedHashMap<>();
         private final Map<UUID, DisclosureMetadataSearchHit>
                 metadataByDisclosureId = new LinkedHashMap<>();
+        private final Map<String, RetrievedFact> verifiedFacts =
+                new LinkedHashMap<>();
+        private final Map<String, RetrievedEvidence> verifiedEvidences =
+                new LinkedHashMap<>();
+        private final Map<String, RetrievedDocument> verifiedDocuments =
+                new LinkedHashMap<>();
         private final List<PlanStep> executedSteps = new ArrayList<>();
         private final LinkedHashSet<String> warnings = new LinkedHashSet<>();
+        private final LinkedHashSet<String> missingFactKeys =
+                new LinkedHashSet<>();
 
         private int metadataCandidateCount;
         private int evidenceCandidateCount;
@@ -262,16 +352,33 @@ public class DefaultDisclosureRetriever implements DisclosureRetriever {
         }
 
         private RetrievalResult toResult() {
-            List<RetrievedEvidence> evidences = chunkHits.values().stream()
+            LinkedHashMap<String, RetrievedEvidence> evidencesById =
+                    new LinkedHashMap<>();
+            chunkHits.values().stream()
                     .map(ExecutionContext::toEvidence)
-                    .toList();
-            List<RetrievedDocument> documents = chunkHits.isEmpty()
-                    ? metadataByDisclosureId.values().stream()
-                            .map(ExecutionContext::toMetadataDocument)
-                            .toList()
-                    : chunkHits.values().stream()
-                            .map(this::toDocument)
-                            .toList();
+                    .forEach(evidence -> evidencesById.putIfAbsent(
+                            evidence.evidenceId(),
+                            evidence
+                    ));
+            verifiedEvidences.forEach(evidencesById::put);
+
+            LinkedHashMap<String, RetrievedDocument> documentsById =
+                    new LinkedHashMap<>();
+            chunkHits.values().stream()
+                    .map(this::toDocument)
+                    .forEach(document -> documentsById.putIfAbsent(
+                            document.documentId(),
+                            document
+                    ));
+            verifiedDocuments.forEach(documentsById::put);
+            if (documentsById.isEmpty()) {
+                metadataByDisclosureId.values().stream()
+                        .map(ExecutionContext::toMetadataDocument)
+                        .forEach(document -> documentsById.putIfAbsent(
+                                document.documentId(),
+                                document
+                        ));
+            }
 
             int candidateCount = evidenceSearchExecuted
                     ? evidenceCandidateCount
@@ -281,12 +388,12 @@ public class DefaultDisclosureRetriever implements DisclosureRetriever {
                     : metadataTruncated;
 
             return new RetrievalResult(
-                    documents,
-                    List.of(),
-                    evidences,
+                    List.copyOf(documentsById.values()),
+                    List.copyOf(verifiedFacts.values()),
+                    List.copyOf(evidencesById.values()),
                     List.of(),
                     List.copyOf(executedSteps),
-                    List.of(),
+                    List.copyOf(missingFactKeys),
                     new RetrievalCoverage(candidateCount, truncated),
                     List.copyOf(warnings),
                     RETRIEVAL_VERSION
@@ -304,7 +411,7 @@ public class DefaultDisclosureRetriever implements DisclosureRetriever {
                     : metadata.sourceGroup().getValue();
 
             return new RetrievedDocument(
-                    hit.receiptNo(),
+                    hit.disclosureDocumentId().toString(),
                     hit.companyName(),
                     stockCode,
                     disclosureType,

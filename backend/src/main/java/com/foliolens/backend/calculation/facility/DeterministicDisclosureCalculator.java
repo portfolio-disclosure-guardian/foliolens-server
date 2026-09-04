@@ -7,6 +7,8 @@ import com.foliolens.backend.calculation.DisclosureCalculator;
 import com.foliolens.backend.disclosure.domain.fact.FactValidationStatus;
 import com.foliolens.backend.question.plan.toolinput.CalculationOperation;
 import com.foliolens.backend.retrieval.RetrievedFact;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -37,6 +39,8 @@ import java.util.Objects;
  * 담지 않으므로(주석 참고) 그 기준 검증은 현재 이 계산기가 확인할 수
  * 없다. 이는 공통 계약 확장이 필요한 부분으로 남겨둔다.
  */
+@Component
+@Profile("!fake-calculation")
 public class DeterministicDisclosureCalculator implements DisclosureCalculator {
 
     private static final String AMOUNT_FACT_KEY = "facility.amount";

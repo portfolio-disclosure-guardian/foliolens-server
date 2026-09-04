@@ -7,6 +7,10 @@ import com.foliolens.backend.disclosure.domain.DisclosureDocumentRole;
 import com.foliolens.backend.disclosure.domain.DisclosureSourceGroup;
 import com.foliolens.backend.disclosure.domain.fact.EvidenceBlockType;
 import com.foliolens.backend.disclosure.domain.fact.EvidenceStatus;
+import com.foliolens.backend.disclosure.domain.fact.DisclosureEvidence;
+import com.foliolens.backend.disclosure.domain.fact.DisclosureFact;
+import com.foliolens.backend.disclosure.domain.fact.FactValidationStatus;
+import com.foliolens.backend.disclosure.domain.fact.FactValueType;
 import com.foliolens.backend.disclosure.infrastructure.search.DisclosureChunkSearchCondition;
 import com.foliolens.backend.disclosure.infrastructure.search.DisclosureChunkSearchHit;
 import com.foliolens.backend.disclosure.infrastructure.search.DisclosureChunkSearchResult;
@@ -16,6 +20,8 @@ import com.foliolens.backend.disclosure.infrastructure.search.DisclosureMetadata
 import com.foliolens.backend.disclosure.infrastructure.search.DisclosureMetadataSearchResult;
 import com.foliolens.backend.disclosure.infrastructure.search.SearchScoreBreakdown;
 import com.foliolens.backend.disclosure.service.DisclosureChunkSearchService;
+import com.foliolens.backend.disclosure.service.DisclosureFactLookupService;
+import com.foliolens.backend.disclosure.service.DisclosureFactLookupResult;
 import com.foliolens.backend.disclosure.service.DisclosureMetadataSearchService;
 import com.foliolens.backend.question.plan.ToolType;
 import com.foliolens.backend.question.plan.confirmation.DateRange;
@@ -25,12 +31,14 @@ import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
 import com.foliolens.backend.question.plan.confirmation.ResolvedCompanyRef;
 import com.foliolens.backend.question.plan.toolinput.SearchDisclosuresInput;
 import com.foliolens.backend.question.plan.toolinput.SearchEvidenceInput;
+import com.foliolens.backend.question.plan.toolinput.LookupFactsInput;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -38,21 +46,135 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyMap;
 
 class DefaultDisclosureRetrieverTest {
 
     private DisclosureMetadataSearchService metadataSearchService;
     private DisclosureChunkSearchService chunkSearchService;
+    private DisclosureFactLookupService factLookupService;
+    private DisclosureFactRetrievalMapper factRetrievalMapper;
     private DefaultDisclosureRetriever retriever;
 
     @BeforeEach
     void setUp() {
         metadataSearchService = mock(DisclosureMetadataSearchService.class);
         chunkSearchService = mock(DisclosureChunkSearchService.class);
+        factLookupService = mock(DisclosureFactLookupService.class);
+        factRetrievalMapper = mock(DisclosureFactRetrievalMapper.class);
         retriever = new DefaultDisclosureRetriever(
                 metadataSearchService,
-                chunkSearchService
+                chunkSearchService,
+                factLookupService,
+                factRetrievalMapper
         );
+    }
+
+    @Test
+    void LOOKUP_FACTS는_메타데이터_검색_결과에서_VERIFIED_Fact와_Evidence를_조회한다() {
+        UUID companyId = UUID.randomUUID();
+        UUID disclosureId = UUID.randomUUID();
+        UUID documentId = UUID.randomUUID();
+        UUID factId = UUID.randomUUID();
+        UUID evidenceId = UUID.randomUUID();
+        DisclosureMetadataSearchHit metadata = new DisclosureMetadataSearchHit(
+                disclosureId,
+                companyId,
+                "SK하이닉스",
+                "000660",
+                "20240424800596",
+                LocalDate.of(2024, 4, 24),
+                "신규시설투자등",
+                DisclosureSourceGroup.EXCHANGE,
+                DisclosureCategory.EXCHANGE,
+                "신규시설투자등",
+                false,
+                SourceProvider.CONTEST,
+                1,
+                2.0,
+                List.of()
+        );
+        DisclosureMetadataSearchResult metadataResult =
+                new DisclosureMetadataSearchResult(
+                        List.of(metadata), 1, false, List.of(),
+                        "metadata-search-v1"
+                );
+        DisclosureFact domainFact = mock(DisclosureFact.class);
+        DisclosureEvidence domainEvidence = mock(DisclosureEvidence.class);
+        DisclosureFactLookupResult lookupResult =
+                new DisclosureFactLookupResult(
+                        List.of(domainFact),
+                        List.of(domainEvidence),
+                        List.of("facility.end_date")
+                );
+        RetrievedFact fact = new RetrievedFact(
+                factId.toString(),
+                disclosureId.toString(),
+                "facility.amount",
+                FactValueType.DECIMAL,
+                "5,296,200,000,000",
+                "5296200000000",
+                "KRW",
+                null,
+                null,
+                List.of(evidenceId.toString()),
+                FactValidationStatus.VERIFIED
+        );
+        RetrievedEvidence evidence = new RetrievedEvidence(
+                evidenceId.toString(),
+                disclosureId.toString(),
+                documentId.toString(),
+                DisclosureDocumentRole.MAIN,
+                null,
+                "신규시설투자 > 투자내역",
+                EvidenceBlockType.TABLE_CELL,
+                "투자금액 5,296,200,000,000원",
+                1.0,
+                EvidenceStatus.VERIFIED,
+                List.of()
+        );
+        RetrievedDocument document = new RetrievedDocument(
+                documentId.toString(),
+                "SK하이닉스",
+                "000660",
+                "exchange",
+                "신규시설투자등",
+                LocalDate.of(2024, 4, 24),
+                "신규시설투자 > 투자내역",
+                evidence.content(),
+                1.0
+        );
+
+        when(metadataSearchService.search(
+                org.mockito.ArgumentMatchers.any()
+        )).thenReturn(metadataResult);
+        when(factLookupService.lookup(
+                Set.of(disclosureId),
+                List.of("facility.amount", "facility.end_date")
+        )).thenReturn(lookupResult);
+        when(factRetrievalMapper.toRetrievedFact(domainFact))
+                .thenReturn(fact);
+        when(factRetrievalMapper.toRetrievedEvidence(domainEvidence))
+                .thenReturn(evidence);
+        when(factRetrievalMapper.toRetrievedDocuments(anyList(), anyMap()))
+                .thenReturn(List.of(document));
+
+        RetrievalResult result = retriever.retrieve(
+                lookupPlan(companyId)
+        );
+
+        assertThat(result.executedSteps())
+                .extracting(PlanStep::toolType)
+                .containsExactly(
+                        ToolType.SEARCH_DISCLOSURES,
+                        ToolType.LOOKUP_FACTS
+                );
+        assertThat(result.facts()).containsExactly(fact);
+        assertThat(result.evidences()).containsExactly(evidence);
+        assertThat(result.documents()).containsExactly(document);
+        assertThat(result.missingFactKeys())
+                .containsExactly("facility.end_date");
     }
 
     @Test
@@ -186,7 +308,7 @@ class DefaultDisclosureRetrieverTest {
         assertThat(result.coverage())
                 .isEqualTo(new RetrievalCoverage(2, true));
         assertThat(result.documents()).singleElement().satisfies(document -> {
-            assertThat(document.documentId()).isEqualTo("20240424800596");
+            assertThat(document.documentId()).isEqualTo(documentId.toString());
             assertThat(document.content()).contains("5조 2,962억 원");
         });
         assertThat(result.evidences()).singleElement().satisfies(evidence -> {
@@ -253,6 +375,46 @@ class DefaultDisclosureRetrieverTest {
                         LocalDate.of(2024, 4, 24)
                 ),
                 List.of(searchDisclosures, searchEvidence),
+                List.of()
+        );
+    }
+
+    private QuestionPlan lookupPlan(UUID companyId) {
+        PlanStep searchDisclosures = new PlanStep(
+                "s1",
+                ToolType.SEARCH_DISCLOSURES,
+                new SearchDisclosuresInput(
+                        List.of(DisclosureCategory.EXCHANGE),
+                        List.of("신규시설투자등"),
+                        List.of(),
+                        10
+                ),
+                List.of()
+        );
+        PlanStep lookupFacts = new PlanStep(
+                "s2",
+                ToolType.LOOKUP_FACTS,
+                new LookupFactsInput(
+                        "s1",
+                        List.of("facility.amount", "facility.end_date")
+                ),
+                List.of("s1")
+        );
+        return new QuestionPlan(
+                1L,
+                List.of(new ResolvedCompanyRef(companyId, "SK하이닉스")),
+                new PlanTime(
+                        new DateRange(
+                                LocalDate.of(2024, 4, 1),
+                                LocalDate.of(2024, 4, 30)
+                        ),
+                        new DateRange(
+                                LocalDate.of(2024, 1, 1),
+                                LocalDate.of(2024, 3, 31)
+                        ),
+                        LocalDate.of(2024, 4, 24)
+                ),
+                List.of(searchDisclosures, lookupFacts),
                 List.of()
         );
     }
