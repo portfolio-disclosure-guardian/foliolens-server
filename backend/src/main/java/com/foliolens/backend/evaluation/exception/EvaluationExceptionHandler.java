@@ -44,7 +44,7 @@ class EvaluationExceptionHandler {
 
         @ExceptionHandler(Exception.class)
         ResponseEntity<Void> handleUnexpectedException(Exception exception) {
-                log.error("Unexpected evaluation failure. type={}", exception.getClass().getSimpleName());
+                log.error("Unexpected evaluation failure. type={}", exception.getClass().getSimpleName(), exception);
 
                 return ResponseEntity
                                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
