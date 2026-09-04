@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * 검색된 청크에서 원본 ContentBlock과 XML·TABLE 위치로 돌아가기 위한 참조 정보
- * 검색 청크가 원문의 어디에서 만들어졌는지 알려주는 위치 참조 모델
+ * 검색 청크가 원문의 어디에서 만들어졌는지 알려주는 위치 참조 모델 ...
  *
  */
 public record DisclosureChunkSourceReference(
