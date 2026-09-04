@@ -42,9 +42,13 @@ public final class FinanceDomainAnswerPolicies {
                 type07(), type08(), type09(), type10(), type11(), type12());
     }
 
+    // ponytail: 실제 exchange doc_subtype은 단일판매공급계약체결(1,106건)과
+    // 단일판매공급계약해지(20건) 두 값이다. disclosureSubtype은 문자열 하나만 담을 수 있어
+    // 건수가 압도적으로 많은 체결을 대표값으로 쓴다. 해지를 지원하려면 별도 정책이나
+    // Set<String> 확장이 필요하다.
     public static AnswerPolicy type01() {
         return draft(
-                "단일판매·공급계약",
+                "단일판매공급계약체결",
                 facts("""
                         contract.contract_type.raw
                         contract.contract_type.code
@@ -129,7 +133,7 @@ public final class FinanceDomainAnswerPolicies {
 
     public static AnswerPolicy type02() {
         return draft(
-                "신규시설투자",
+                "신규시설투자등",
                 facts("""
                         facility.type.raw
                         facility.type.code
@@ -206,7 +210,7 @@ public final class FinanceDomainAnswerPolicies {
 
     public static AnswerPolicy type03() {
         return draft(
-                "투자판단 관련 주요경영사항",
+                "투자판단관련주요경영사항",
                 facts("""
                         management_event.title.raw
                         management_event.type.code
@@ -315,7 +319,7 @@ public final class FinanceDomainAnswerPolicies {
 
     public static AnswerPolicy type04() {
         return draft(
-                "주식 등의 대량보유상황보고서",
+                "대량보유상황보고서",
                 facts("""
                         holding.report_type.raw
                         holding.report_type.code

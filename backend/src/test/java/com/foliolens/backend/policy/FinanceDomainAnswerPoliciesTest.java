@@ -10,10 +10,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FinanceDomainAnswerPoliciesTest {
 
     private static final Map<String, Integer> EXPECTED_FACT_COUNTS = Map.ofEntries(
-            Map.entry("단일판매·공급계약", 66),
-            Map.entry("신규시설투자", 49),
-            Map.entry("투자판단 관련 주요경영사항", 87),
-            Map.entry("주식 등의 대량보유상황보고서", 69),
+            Map.entry("단일판매공급계약체결", 66),
+            Map.entry("신규시설투자등", 49),
+            Map.entry("투자판단관련주요경영사항", 87),
+            Map.entry("대량보유상황보고서", 69),
             Map.entry("정기공시 재무·사업정보", 55),
             Map.entry("자기주식 취득·처분·신탁", 46),
             Map.entry("자금조달·자본변동", 126),
@@ -25,10 +25,10 @@ class FinanceDomainAnswerPoliciesTest {
     );
 
     private static final Map<String, Integer> EXPECTED_CALCULATION_COUNTS = Map.ofEntries(
-            Map.entry("단일판매·공급계약", 5),
-            Map.entry("신규시설투자", 14),
-            Map.entry("투자판단 관련 주요경영사항", 7),
-            Map.entry("주식 등의 대량보유상황보고서", 12),
+            Map.entry("단일판매공급계약체결", 5),
+            Map.entry("신규시설투자등", 14),
+            Map.entry("투자판단관련주요경영사항", 7),
+            Map.entry("대량보유상황보고서", 12),
             Map.entry("정기공시 재무·사업정보", 11),
             Map.entry("자기주식 취득·처분·신탁", 9),
             Map.entry("자금조달·자본변동", 10),

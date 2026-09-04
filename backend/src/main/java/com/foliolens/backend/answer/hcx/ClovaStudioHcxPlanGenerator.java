@@ -1,5 +1,7 @@
 package com.foliolens.backend.answer.hcx;
 
+import java.time.LocalDate;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +18,9 @@ import tools.jackson.databind.ObjectMapper;
 public class ClovaStudioHcxPlanGenerator implements HcxPlanGenerator {
 
     // ToolType·toolinput 레코드(SearchDisclosuresInput 등)와 정확히 일치해야 QuestionPlanConverter가 파싱할 수 있다.
-    private static final String SYSTEM_PROMPT = """
+    // %s에는 호출 시점의 오늘 날짜(LocalDate)가 들어간다. 프롬프트 본문에 리터럴 '%'를 추가하지 말 것.
+    private static final String SYSTEM_PROMPT_TEMPLATE = """
+            오늘 날짜는 %s입니다.
             질문을 읽고 아래 JSON 스키마와 정확히 일치하는 JSON 객체 하나만 출력하세요.
             코드블록, 설명, 인사말 없이 JSON만 출력합니다. 질문에 없는 기업·기간·공시 유형·계산을 추가하지 마세요.
 
@@ -33,7 +37,7 @@ public class ClovaStudioHcxPlanGenerator implements HcxPlanGenerator {
                 {
                   "stepId": "step1",
                   "toolType": "SEARCH_DISCLOSURES",
-                  "input": {"categories": ["categories는 아래 4개 값 중에서만 선택"], "subtypes": [], "titleTerms": [], "limit": 5},
+                  "input": {"categories": ["categories는 아래 4개 값 중에서만 선택"], "subtypes": ["subtypes는 아래 안내를 따라 선택"], "titleTerms": [], "limit": 5},
                   "dependsOn": []
                 },
                 {
@@ -52,6 +56,12 @@ public class ClovaStudioHcxPlanGenerator implements HcxPlanGenerator {
               "ambiguities": []
             }
 
+            time의 receiptPeriod·reportPeriod·asOf는 질문 문장에 실제로 언급된 연도·시점을 그대로
+            사용하세요. 질문에 연도가 없으면 위에 제시된 오늘 날짜를 기준으로 추정하세요. 오늘
+            날짜나 질문에 언급된 연도와 무관한 임의의 과거 연도를 만들어내지 마세요.
+            예: 오늘 날짜가 2026-09-04이고 질문이 "2025년 11월에 발표한 ..."이면 asOf는
+            2025년 11월 안의 날짜여야 하며, 2023년 같은 다른 연도를 쓰면 안 됩니다.
+
             categories는 반드시 아래 4개 값 중 하나 이상이어야 하며, 이 4개 외의 다른 문자열은
             어떤 경우에도 만들어내지 마세요. 의미가 비슷해 보여도 새 값을 지어내면 안 됩니다.
             - PERIODIC: 사업보고서·반기보고서·분기보고서
@@ -61,6 +71,13 @@ public class ClovaStudioHcxPlanGenerator implements HcxPlanGenerator {
             - OWNERSHIP: 주식 등의 대량보유상황보고서
 
             예: "SK하이닉스의 신규시설투자 공시" → categories는 ["MATERIAL"]이 아니라 ["EXCHANGE"]입니다.
+
+            subtypes는 categories에 EXCHANGE가 포함될 때 채우는 세부 공시명입니다. 질문에 등장하는
+            회사명과는 무관하게 공시 유형만으로 판단하며, 현재는 아래 값만 지원합니다. 목록에 없는
+            값은 만들어내지 말고, 지원하지 않는 EXCHANGE 세부 유형이면 subtypes를 빈 배열로 두세요.
+            - 신규시설투자등: 신규시설투자·시설투자·생산능력 확장·증설 관련 질문
+            예: "셀트리온의 신규시설투자 공시"나 "LG이노텍이 발표한 시설투자" → 회사명과 무관하게
+            subtypes는 ["신규시설투자등"]입니다.
 
             factKeys는 "투자금액", "목적"처럼 질문의 표현을 그대로 쓰지 말고, 아래 factKey
             목록의 문자열을 정확히 그대로 사용하세요. 목록에 없는 값은 만들어내지 마세요.
@@ -93,7 +110,8 @@ public class ClovaStudioHcxPlanGenerator implements HcxPlanGenerator {
 
     @Override
     public QuestionPlanCandidate generatePlan(String question) {
-        String content = chatClient.chat(SYSTEM_PROMPT, question);
+        String systemPrompt = SYSTEM_PROMPT_TEMPLATE.formatted(LocalDate.now());
+        String content = chatClient.chat(systemPrompt, question);
         try {
             return objectMapper.readValue(extractJsonObject(content), QuestionPlanCandidate.class);
         } catch (JacksonException e) {
