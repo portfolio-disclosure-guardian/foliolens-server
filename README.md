@@ -123,6 +123,20 @@ Invoke-RestMethod http://localhost:8080/actuator/health
 
 데이터셋 적재는 재실행할 수 있도록 설계되어 있지만, 두 적재 플래그를 계속 켜 두면 애플리케이션 시작 때마다 검증 작업이 실행된다.
 
+### 제출 smoke
+
+앱과 PostgreSQL의 liveness/readiness만 먼저 확인할 수 있다.
+
+```powershell
+.\scripts\submission-smoke.ps1 -InfrastructureOnly
+```
+
+A8 실제 데이터 연결이 완료된 뒤에는 대표 질문, 평가 응답의 정확한 5개 키, 질문 보존, 공시 `20240424800596` 근거와 placeholder 미반환까지 확인한다. 기본 `question_id`는 골든 케이스 ID가 아니라 상관관계용 ID를 사용한다.
+
+```powershell
+.\scripts\submission-smoke.ps1
+```
+
 ### Frontend
 
 현재 프론트엔드는 기능 화면이 아닌 개발 초기 템플릿이다.
@@ -142,7 +156,7 @@ npm run dev
 - [API 명세서](docs/API_명세서.md): 평가·웹 API 공통 계약
 - [데이터 카탈로그](docs/DATA_CATALOG.md): 실제 대회 데이터 구조
 - [도구 계약](docs/TOOL_CONTRACTS.md): QueryPlan 도구와 공시 라우팅
-- [역할 A 기능 명세](docs/ROLE_A_SPEC.md): 역할 A의 현재 코드 기준 P0 잔여 계약과 역할 경계
+- [역할 A 기능 명세](docs/role-a/ROLE_A_SPEC.md): 역할 A의 현재 코드 기준 P0 잔여 계약과 역할 경계
 - [기술 결정](docs/DECISIONS.md): 승인된 기술 선택
 
 ## 첫 번째 완료 목표
