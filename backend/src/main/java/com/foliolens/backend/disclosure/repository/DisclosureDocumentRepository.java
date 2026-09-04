@@ -167,6 +167,10 @@ public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDo
               AND (d.contentFormat = com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat.DART_XML
                    OR (d.contentFormat = com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat.PDF
                        AND d.disclosure.sourceGroup = com.foliolens.backend.disclosure.domain.DisclosureSourceGroup.PERIODIC)
+              AND d.parseStatus = com.foliolens.backend.disclosure.domain.DisclosureDocumentParseStatus.COMPLETED
+              AND d.chunkStatus = com.foliolens.backend.disclosure.domain.DisclosureDocumentChunkStatus.PENDING
+              AND (:rawSubtype IS NULL OR d.disclosure.rawSubtype = :rawSubtype)
+              AND (d.contentFormat = com.foliolens.backend.disclosure.domain.DisclosureDocumentContentFormat.DART_XML
                    OR d.disclosure.sourceGroup = com.foliolens.backend.disclosure.domain.DisclosureSourceGroup.EXCHANGE)
             ORDER BY d.id
             """)
