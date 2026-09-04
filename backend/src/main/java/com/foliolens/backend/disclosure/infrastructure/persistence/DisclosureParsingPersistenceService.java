@@ -146,6 +146,11 @@ public class DisclosureParsingPersistenceService {
         } else {
             document.markCompleted(parserName, parserVersion, Instant.now());
         }
+        document.markCompleted(
+                parserName,
+                parserVersion,
+                Instant.now()
+        );
 
         /*
          * document는 조회 이후 영속 상태이므로 save()는 필요 없지만,

@@ -9,6 +9,7 @@ public record ParsedDisclosureDocument(
         List<ParsedDisclosureSection> sections, // 문서의 최상위 섹션 목록
         List<ParsedDisclosureLink> relatedLinks, // 원문에 기재된 공시 링크. 관계 확정은 별도 단계
         com.foliolens.backend.disclosure.infrastructure.parsing.pdf.PdfTextExtractionReport pdfTextReport
+        List<ParsedDisclosureLink> relatedLinks // 원문에 기재된 공시 링크. 관계 확정은 별도 단계
 ) {
 
     public ParsedDisclosureDocument {
