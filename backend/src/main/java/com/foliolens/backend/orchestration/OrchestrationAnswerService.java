@@ -1,7 +1,9 @@
 package com.foliolens.backend.orchestration;
 
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -33,8 +35,11 @@ import com.foliolens.backend.question.AnswerQuestionCommand;
 import com.foliolens.backend.question.entity.QuestionRun;
 import com.foliolens.backend.question.plan.HcxPlanGenerator;
 import com.foliolens.backend.question.plan.QuestionPlanConverter;
+import com.foliolens.backend.question.plan.ToolType;
 import com.foliolens.backend.question.plan.candidate.QuestionPlanCandidate;
+import com.foliolens.backend.question.plan.confirmation.PlanStep;
 import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
+import com.foliolens.backend.question.plan.toolinput.SearchDisclosuresInput;
 import com.foliolens.backend.question.service.QuestionRunService;
 import com.foliolens.backend.retrieval.DisclosureRetriever;
 import com.foliolens.backend.retrieval.RetrievalResult;
@@ -185,14 +190,6 @@ public class OrchestrationAnswerService {
             QuestionRun run,
             long deadlineNanos) {
         ensureBeforeDeadline(deadlineNanos);
-        PolicyMatch match = matchPolicy(command.externalQuestionId()).orElse(null);
-        if (match == null || (requireApprovedGoldenCase
-                && match.goldenCase().approvalStatus() != GoldenCaseApprovalStatus.APPROVED)) {
-            return placeholder(run);
-        }
-        AnswerPolicy policy = match.policy();
-        GoldenCase goldenCase = match.goldenCase();
-
         long planningStartedNanos = System.nanoTime();
         QuestionPlanCandidate planCandidate = hcxPlanGenerator.generatePlan(command.question());
         QuestionPlan plan = questionPlanConverter.candidateToConfirmation(planCandidate);
@@ -208,6 +205,14 @@ public class OrchestrationAnswerService {
                 plan.schemaVersion(),
                 modelVersion);
         ensureBeforeDeadline(deadlineNanos);
+
+        PolicyMatch match = matchPolicy(plan, command.question()).orElse(null);
+        if (match == null || (requireApprovedGoldenCase
+                && match.goldenCase().approvalStatus() != GoldenCaseApprovalStatus.APPROVED)) {
+            return placeholder(run);
+        }
+        AnswerPolicy policy = match.policy();
+        GoldenCase goldenCase = match.goldenCase();
 
         long retrievalStartedNanos = System.nanoTime();
         RetrievalResult retrieval = answerReferenceValidator.verifiedOnly(
@@ -365,15 +370,44 @@ public class OrchestrationAnswerService {
                 cause);
     }
 
-    private Optional<PolicyMatch> matchPolicy(String externalQuestionId) {
-        for (AnswerPolicy policy : answerPolicies) {
-            for (GoldenCase goldenCase : policy.goldenCases()) {
-                if (goldenCase.goldenCaseId().equals(externalQuestionId)) {
-                    return Optional.of(new PolicyMatch(policy, goldenCase));
-                }
-            }
+    private Optional<PolicyMatch> matchPolicy(QuestionPlan plan, String question) {
+        Set<String> requestedSubtypes = plan.steps().stream()
+                .filter(step -> step.toolType() == ToolType.SEARCH_DISCLOSURES)
+                .map(PlanStep::input)
+                .filter(SearchDisclosuresInput.class::isInstance)
+                .map(SearchDisclosuresInput.class::cast)
+                .flatMap(input -> input.subtypes().stream())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+
+        List<AnswerPolicy> matches = answerPolicies.stream()
+                .filter(policy -> requestedSubtypes.isEmpty()
+                        ? policy.goldenCases().stream().anyMatch(goldenCase -> goldenCase.question().equals(question))
+                        : requestedSubtypes.contains(policy.disclosureSubtype()))
+                .toList();
+
+        if (matches.isEmpty()) {
+            return Optional.empty();
         }
-        return Optional.empty();
+        if (matches.size() > 1) {
+            throw new IllegalStateException("검증된 계획에 일치하는 답변 정책이 여러 개입니다.");
+        }
+
+        AnswerPolicy policy = matches.getFirst();
+        Optional<GoldenCase> exactQuestion = policy.goldenCases().stream()
+                .filter(goldenCase -> goldenCase.question().equals(question))
+                .findFirst();
+        if (exactQuestion.isPresent()) {
+            return Optional.of(new PolicyMatch(policy, exactQuestion.get()));
+        }
+        if (policy.goldenCases().isEmpty()) {
+            return Optional.empty();
+        }
+        if (policy.goldenCases().size() > 1) {
+            throw new IllegalStateException("질문에 적용할 골든 케이스를 하나로 결정할 수 없습니다.");
+        }
+        // ponytail: 현재 실행 정책은 검증 fixture가 하나다. 복수 fixture가 승인되면
+        // 골든 기대값과 일반 정책 검증을 분리해 이 단일-case fallback을 제거한다.
+        return Optional.of(new PolicyMatch(policy, policy.goldenCases().getFirst()));
     }
 
     private AnswerResult placeholder(QuestionRun run) {
