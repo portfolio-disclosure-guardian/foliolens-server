@@ -93,11 +93,15 @@
 
 ### 3.1 현재 테스트 기준선
 
-- 전체 테스트 콘솔 요약 기준: 22개 중 1개 실패, 3개 skip. 테스트 태스크 종료 과정에서는 별도 `EOFException`도 발생했다.
-- 유일한 테스트 케이스 실패는 `BackendApplicationTests.contextLoads()`이며, 현재 로컬 기본 DB 환경의 PostgreSQL 인증 실패(`SQLSTATE 28P01`)로 재현됐다. 애플리케이션 코드 결함으로 확정된 것은 아니다.
-- 과거 문서의 `jpaAuditingHandler` 중복 실패 기록은 삭제한다. 현재 `@EnableJpaAuditing`은 `JpaConfig` 한 곳이다.
-- 평가 Controller·예외 mapper, 응답 mapper, `OrchestrationAnswerService`, 계획 DTO·검증, `QuestionRun` 생명주기를 검증하는 테스트는 없다.
-- Docker가 필요한 3개 테스트는 skip됐다. 이번 검토에서 Docker 가용성은 별도로 확인하지 않았으며 skip은 성공 검증으로 계산하지 않는다.
+> 2026-09-04 갱신(A9 작업): 이 절만 최신화했다. 문서 상단 메타데이터(검토일 2026-08-25)는 문서 전체 재검토 시점이라 그대로 둔다.
+
+- 전체 테스트 콘솔 요약: 486개 중 실패 0, 에러 0. Docker 가용성 부족으로 인한 skip은 0건이다.
+- skip 8건은 모두 이번 작업 이전부터 있던 의도적 opt-in 게이트다: `foliolens.test.dataset-root` 시스템 프로퍼티가 없으면 건너뛰는 HTML/PDF 코퍼스·청킹 테스트, `FOLIOLENS_ACTUAL_DB_AUDIT=true`가 아니면 건너뛰는 실 DB 감사 테스트.
+- `OrchestrationAnswerServiceTest` 12/12 통과. GOLD-FACILITY-001~003이 모두 APPROVED로 바뀐 뒤 "승인 강제 시 검토중 케이스는 placeholder" 테스트가 운영 fixture를 더는 pending으로 가정하지 않도록 테스트 전용 C_REVIEW_PENDING 정책으로 분리했다.
+- `OrchestrationAnswerRealDataIntegrationTest` 5/5 통과. 승인된 골든 케이스 3건(SK하이닉스·셀트리온·LG이노텍)을 모두 seed해 실제 PostgreSQL(Testcontainers)에서 COMPLETED·MATCH·기대 답변 일치까지 확인하는 테스트를 추가했다. 이 과정에서 `FakeHcxAnswerGenerator`가 질문과 무관하게 항상 `goldenCases().getFirst()`의 답변만 반환하던 결함을 고쳐 회사별로 올바른 답변이 나오게 했다.
+- `disclosureData` HealthIndicator를 추가해 readiness 그룹(`readinessState,db,disclosureData`)이 Flyway V12 적용 여부와 승인된 골든 케이스의 필수 fact·evidence 존재까지 확인한다. 데이터가 없으면 `/actuator/health/readiness`가 더는 UP을 반환하지 않는다.
+- 별도 Compose project(`foliolens-a9verify`)로 빈 PostgreSQL → `backup/foliolens-db.dump` 복원(disclosures 4204·facts 345·evidences 345, 원본과 일치) → 최신 이미지 기동을 재현해, Flyway가 12개 마이그레이션을 재실행 없이 validate하고 readiness가 UP이 되는 것을 확인했다(검증 후 project/volume 정리). README의 제출 프로필 절에 복원 명령을 추가했다.
+- 남은 것: 실제 제출용 HCX 키(`HCX_APP_TYPE=serviceapp`)로 대표 질문 3건 전체 smoke. 인프라 전용 smoke(`submission-smoke.ps1 -InfrastructureOnly`)는 통과했지만 실 키 응답 품질 smoke는 키 보유자가 실행해야 한다.
 
 ## 4. 현재 코드의 잔여 차이
 
@@ -121,7 +125,7 @@
 | 신뢰성 | deadline, 재검색·재생성 한도, 단계 로그 없음 | 설정 한도와 결정적 시나리오 테스트 |
 | 오류 코드 | `DATASET_503_2`가 문자열 코드 `DATASET_503_1`을 중복 사용 | 코드 고유성 테스트와 값 수정 |
 | 평가 profile | CONTEST 전용 Bean 경계와 데이터 readiness 없음 | 금지 외부 호출 0건과 준비 상태 검증 |
-| 제출 검증 | README와 Docker smoke가 현재 코드보다 오래됨 | 새 DB 기동, 대표 질문 smoke, README 명령 재검증 |
+| 제출 검증 | 새 DB 기동·readiness·README 명령 재현은 검증 완료(3.1절) | 실제 제출용 HCX 키로 대표 질문 3건 전체 smoke만 남음 |
 
 ## 5. 역할 A가 소유하는 잔여 계약
 

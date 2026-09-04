@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import com.foliolens.backend.calculation.CalculationResult;
 import com.foliolens.backend.policy.AnswerPolicy;
+import com.foliolens.backend.policy.GoldenCase;
 import com.foliolens.backend.retrieval.RetrievalResult;
 
 @Component
@@ -18,8 +19,12 @@ public final class FakeHcxAnswerGenerator implements HcxAnswerGenerator {
             RetrievalResult retrieval,
             CalculationResult calculation,
             AnswerOutcome outcome) {
+        GoldenCase goldenCase = policy.goldenCases().stream()
+                .filter(candidate -> candidate.question().equals(question))
+                .findFirst()
+                .orElseGet(() -> policy.goldenCases().getFirst());
         return switch (outcome) {
-            case COMPLETED -> policy.goldenCases().getFirst().expectedAnswer();
+            case COMPLETED -> goldenCase.expectedAnswer();
             case PARTIAL -> "대회 제공 공시 원문에서 일부 필수 항목을 확인할 수 없습니다.";
             case UNANSWERABLE -> "대회 제공 공시 원문에서 해당 항목을 확인할 수 없습니다.";
         };

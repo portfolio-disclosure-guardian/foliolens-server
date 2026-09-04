@@ -4,6 +4,7 @@ import java.time.LocalDate;
 
 public record RetrievedDocument(
         String documentId,
+        String receiptNo,
         String companyName,
         String stockCode,
         String disclosureType,

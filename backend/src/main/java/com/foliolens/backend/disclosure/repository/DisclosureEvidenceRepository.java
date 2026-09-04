@@ -24,6 +24,8 @@ public interface DisclosureEvidenceRepository
 
     long countByDisclosureDocumentId(UUID disclosureDocumentId);
 
+    long countByReceiptNo(String receiptNo);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             DELETE FROM DisclosureEvidenceEntity evidence

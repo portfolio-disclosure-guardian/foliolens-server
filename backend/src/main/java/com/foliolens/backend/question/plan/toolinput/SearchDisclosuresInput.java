@@ -12,7 +12,7 @@ public record SearchDisclosuresInput(List<DisclosureCategory> categories,
 
     public SearchDisclosuresInput {
         categories = immutableCategories(categories);
-        subtypes = immutableTextList(subtypes, "subtypes");
+        subtypes = immutableSubtypeList(subtypes);
         titleTerms = immutableTextList(titleTerms, "titleTerms");
     }
 
@@ -28,6 +28,19 @@ public record SearchDisclosuresInput(List<DisclosureCategory> categories,
             );
         }
         return values.stream().distinct().toList();
+    }
+
+    // HCX가 자유생성한 subtypes는 "신규시설 투자등"처럼 복합명사 사이에 공백이
+    // 섞여 나올 때가 있다. subtypes는 정해진 값과 정확히 일치해야 정책에 매칭되므로
+    // 내부 공백까지 제거해 비교 안정성을 확보한다(titleTerms는 자유 검색어라 보존한다).
+    private static List<String> immutableSubtypeList(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .map(value -> requireText(value, "subtypes").replaceAll("\\s+", ""))
+                .distinct()
+                .toList();
     }
 
     private static List<String> immutableTextList(

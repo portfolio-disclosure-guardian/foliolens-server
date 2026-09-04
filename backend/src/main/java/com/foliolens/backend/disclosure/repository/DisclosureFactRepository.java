@@ -46,6 +46,8 @@ public interface DisclosureFactRepository
 
     long countByDisclosureDocumentId(UUID disclosureDocumentId);
 
+    long countBySourceReceiptNoAndFactKey(String sourceReceiptNo, String factKey);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             DELETE FROM DisclosureFactEntity fact

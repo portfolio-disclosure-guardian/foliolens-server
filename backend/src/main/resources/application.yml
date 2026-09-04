@@ -44,7 +44,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,db
+          include: readinessState,db,disclosureData
       show-details: never
 
 foliolens:

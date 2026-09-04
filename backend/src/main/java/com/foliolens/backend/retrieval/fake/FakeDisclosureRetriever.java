@@ -74,7 +74,8 @@ public final class FakeDisclosureRetriever implements DisclosureRetriever {
         }
 
         RetrievedDocument document = new RetrievedDocument(
-                goldenCase.receiptNo(), goldenCase.companyName(), "000660", "exchange", "신규시설투자등",
+                goldenCase.receiptNo(), goldenCase.receiptNo(), goldenCase.companyName(), "000660", "exchange",
+                "신규시설투자등",
                 LocalDate.parse(goldenCase.expectedNormalizedFacts().get("facility.decision_date")),
                 "2. 투자내역", "투자내역 원문", 1.0);
 
