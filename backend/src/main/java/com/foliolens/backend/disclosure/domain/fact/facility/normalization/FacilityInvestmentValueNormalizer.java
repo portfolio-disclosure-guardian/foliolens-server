@@ -61,6 +61,22 @@ public class FacilityInvestmentValueNormalizer {
     private static final Map<String, String> FACILITY_TYPE_KEYWORDS =
             new LinkedHashMap<>();
 
+    // "기타 투자판단과 관련한 중요사항" 서술형 문장에서 외화금액·환율을
+    // 뽑아낸다. 43건 실제 코퍼스에서 확인된 표현은 전부 USD이므로
+    // 지금은 USD만 승인한다. 다른 통화 표현은 추측하지 않고 UNMAPPED로
+    // 남긴다.
+    private static final Pattern FX_FOREIGN_VALUE_PATTERN =
+            Pattern.compile("USD\\s*([\\d,]+(?:\\.\\d+)?)");
+    private static final Pattern FX_RATE_PATTERN =
+            Pattern.compile("([\\d,]+(?:\\.\\d+)?)\\s*KRW\\s*/\\s*USD");
+    // 노트 칸에는 이 공시의 투자금액과 무관한 문장(예: 해외 계열회사의
+    // 별도 투자)도 USD 금액을 언급할 수 있다. "- "로 시작하는 항목
+    // 단위로 나눠 "투자금액"이 함께 언급된 항목에서만 외화·환율을
+    // 찾아 오귀속을 막는다.
+    private static final Pattern NOTE_BULLET_SPLIT_PATTERN =
+            Pattern.compile("(?:^|\\r?\\n)\\s*-\\s*");
+    private static final String INVESTMENT_AMOUNT_KEYWORD = "투자금액";
+
     static {
         FACILITY_TYPE_KEYWORDS.put("신설", "NEW_CONSTRUCTION");
         FACILITY_TYPE_KEYWORDS.put("증설", "EXPANSION");
@@ -76,6 +92,20 @@ public class FacilityInvestmentValueNormalizer {
     ) {
         Objects.requireNonNull(definition, "definition은 필수입니다.");
         Objects.requireNonNull(value, "value는 필수입니다.");
+
+        // 아래 3개는 "기타 투자판단과 관련한 중요사항" 서술형 칸의 자유
+        // 문장에서 정규식으로 값을 뽑아내므로, valueType 기준 공통 분기가
+        // 아니라 definition별로 먼저 처리한다.
+        if (definition == FacilityInvestmentFactDefinition.FOREIGN_VALUE) {
+            return normalizeForeignValue(value.rawValue());
+        }
+        if (definition == FacilityInvestmentFactDefinition.CURRENCY_CODE) {
+            return normalizeCurrencyCode(value.rawValue());
+        }
+        if (definition
+                == FacilityInvestmentFactDefinition.DISCLOSED_FX_RATE) {
+            return normalizeDisclosedFxRate(value.rawValue());
+        }
 
         return switch (definition.valueType()) {
             case DECIMAL -> "PERCENT".equals(definition.normalizedUnit())
@@ -299,6 +329,135 @@ public class FacilityInvestmentValueNormalizer {
                 new CodeFactValue(matchedCodes.iterator().next()),
                 null
         );
+    }
+
+    /**
+     * "총 선가 USD 1,118,534,000에 ... 최초고시환율 1,263.1KRW/USD를
+     * 적용한 금액입니다"류 서술 문장에서 외화 원금(USD)만 뽑아낸다.
+     * "USD환율"처럼 금액 없이 통화만 언급된 경우는 값이 없는 것과
+     * 같으므로 UNMAPPED로 남긴다.
+     */
+    public FactValueNormalizationResult normalizeForeignValue(
+            String rawValue
+    ) {
+        if (isBlank(rawValue)) {
+            return FactValueNormalizationResult.missing(FactValueType.DECIMAL);
+        }
+
+        String scoped = investmentAmountBullets(rawValue);
+        if (scoped == null) {
+            return FactValueNormalizationResult.unmapped(
+                    FactValueType.DECIMAL,
+                    "투자금액을 언급한 서술을 찾지 못했습니다."
+            );
+        }
+
+        Matcher matcher = FX_FOREIGN_VALUE_PATTERN.matcher(scoped);
+        if (!matcher.find()) {
+            return FactValueNormalizationResult.unmapped(
+                    FactValueType.DECIMAL,
+                    "외화 투자금액(USD)을 찾지 못했습니다."
+            );
+        }
+
+        String numeric = matcher.group(1).replace(",", "");
+        try {
+            return FactValueNormalizationResult.mapped(
+                    new DecimalFactValue(new BigDecimal(numeric)),
+                    "USD"
+            );
+        } catch (NumberFormatException e) {
+            return FactValueNormalizationResult.unmapped(
+                    FactValueType.DECIMAL,
+                    "외화 투자금액을 숫자로 변환할 수 없습니다: " + numeric
+            );
+        }
+    }
+
+    /**
+     * 같은 서술 문장에서 통화코드를 뽑아낸다. 43건 실제 코퍼스에는 USD
+     * 표현만 있으므로 지금은 USD만 승인한다.
+     */
+    public FactValueNormalizationResult normalizeCurrencyCode(
+            String rawValue
+    ) {
+        if (isBlank(rawValue)) {
+            return FactValueNormalizationResult.missing(FactValueType.CODE);
+        }
+
+        String scoped = investmentAmountBullets(rawValue);
+        if (scoped == null
+                || !FX_FOREIGN_VALUE_PATTERN.matcher(scoped).find()) {
+            return FactValueNormalizationResult.unmapped(
+                    FactValueType.CODE,
+                    "승인된 통화 표기(USD)를 찾지 못했습니다."
+            );
+        }
+        return FactValueNormalizationResult.mapped(
+                new CodeFactValue("USD"),
+                null
+        );
+    }
+
+    /**
+     * 같은 서술 문장에서 "1,263.1KRW/USD" 또는 "(1,427.70 KRW/USD)"
+     * 형태의 공시 적용환율을 뽑아낸다. 환율 자체가 문장에 없으면(예:
+     * "USD환율을 적용한 금액임"처럼 숫자 없이 통화만 언급) 값이 없는
+     * 것과 같으므로 추측하지 않고 UNMAPPED로 남긴다.
+     */
+    public FactValueNormalizationResult normalizeDisclosedFxRate(
+            String rawValue
+    ) {
+        if (isBlank(rawValue)) {
+            return FactValueNormalizationResult.missing(FactValueType.DECIMAL);
+        }
+
+        String scoped = investmentAmountBullets(rawValue);
+        if (scoped == null) {
+            return FactValueNormalizationResult.unmapped(
+                    FactValueType.DECIMAL,
+                    "투자금액을 언급한 서술을 찾지 못했습니다."
+            );
+        }
+
+        Matcher matcher = FX_RATE_PATTERN.matcher(scoped);
+        if (!matcher.find()) {
+            return FactValueNormalizationResult.unmapped(
+                    FactValueType.DECIMAL,
+                    "공시 적용환율(KRW/USD)을 찾지 못했습니다."
+            );
+        }
+
+        String numeric = matcher.group(1).replace(",", "");
+        try {
+            return FactValueNormalizationResult.mapped(
+                    new DecimalFactValue(new BigDecimal(numeric)),
+                    "KRW_PER_USD"
+            );
+        } catch (NumberFormatException e) {
+            return FactValueNormalizationResult.unmapped(
+                    FactValueType.DECIMAL,
+                    "공시 적용환율을 숫자로 변환할 수 없습니다: " + numeric
+            );
+        }
+    }
+
+    /**
+     * 노트 칸 전체 서술에서 "투자금액"을 언급한 "- " 항목만 골라
+     * 이어 붙인다. 이 공시의 투자금액과 무관한 항목(예: 해외
+     * 계열회사의 별도 투자 언급)에서 외화·환율을 잘못 가져오지 않기
+     * 위한 범위 제한이다. 해당하는 항목이 하나도 없으면 null을
+     * 반환한다.
+     */
+    private String investmentAmountBullets(String rawValue) {
+        String[] bullets = NOTE_BULLET_SPLIT_PATTERN.split(rawValue);
+        StringBuilder relevant = new StringBuilder();
+        for (String bullet : bullets) {
+            if (bullet.contains(INVESTMENT_AMOUNT_KEYWORD)) {
+                relevant.append(bullet).append('\n');
+            }
+        }
+        return relevant.isEmpty() ? null : relevant.toString();
     }
 
     private static boolean isBlank(String value) {

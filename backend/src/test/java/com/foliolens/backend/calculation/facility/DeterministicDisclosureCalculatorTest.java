@@ -473,6 +473,139 @@ class DeterministicDisclosureCalculatorTest {
     }
 
     @Test
+    void 외화금액과_환율의_곱이_공시금액과_일치하면_MATCH를_반환한다() {
+        // 실제 접수번호 20230214800345 원문 값: USD 1,118,534,000 ×
+        // 1,263.1 KRW/USD = 1,412,820,295,400원(공시된 investment금액과
+        // 정확히 일치).
+        CalculationResult result = calculator.calculate(
+                fxCheckCommand(),
+                List.of(
+                        fact("amount-1", "facility.amount", "1412820295400"),
+                        fxFact(
+                                "foreign-1",
+                                "facility.amount.foreign_value",
+                                "1118534000",
+                                "USD"
+                        ),
+                        fxFact(
+                                "rate-1",
+                                "facility.amount.disclosed_fx_rate",
+                                "1263.1",
+                                "KRW_PER_USD"
+                        )
+                )
+        );
+
+        assertThat(result.verdict()).isEqualTo(CalculationVerdict.MATCH);
+        assertThat(result.displayValue()).isEqualTo("1412820295400");
+        assertThat(result.disclosedValue()).isEqualTo("1412820295400");
+        assertThat(result.unit()).isEqualTo("KRW");
+    }
+
+    @Test
+    void 외화금액과_환율의_곱이_공시금액과_다르면_MISMATCH를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                fxCheckCommand(),
+                List.of(
+                        fact("amount-1", "facility.amount", "999999999999"),
+                        fxFact(
+                                "foreign-1",
+                                "facility.amount.foreign_value",
+                                "1118534000",
+                                "USD"
+                        ),
+                        fxFact(
+                                "rate-1",
+                                "facility.amount.disclosed_fx_rate",
+                                "1263.1",
+                                "KRW_PER_USD"
+                        )
+                )
+        );
+
+        assertThat(result.verdict()).isEqualTo(CalculationVerdict.MISMATCH);
+    }
+
+    @Test
+    void 환율_Fact가_없으면_외화_계산불가를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                fxCheckCommand(),
+                List.of(
+                        fact("amount-1", "facility.amount", "70652728848"),
+                        fxFact(
+                                "foreign-1",
+                                "facility.amount.foreign_value",
+                                "93846633",
+                                "USD"
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason())
+                .contains("facility.amount.disclosed_fx_rate");
+    }
+
+    @Test
+    void 외화_단위가_USD가_아니면_계산불가를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                fxCheckCommand(),
+                List.of(
+                        fact("amount-1", "facility.amount", "1412820295400"),
+                        fxFact(
+                                "foreign-1",
+                                "facility.amount.foreign_value",
+                                "1118534000",
+                                "JPY"
+                        ),
+                        fxFact(
+                                "rate-1",
+                                "facility.amount.disclosed_fx_rate",
+                                "1263.1",
+                                "KRW_PER_USD"
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("외화 단위");
+    }
+
+    @Test
+    void 외화_같은_factKey가_여러개면_임의로_선택하지_않는다() {
+        CalculationResult result = calculator.calculate(
+                fxCheckCommand(),
+                List.of(
+                        fact("amount-1", "facility.amount", "1412820295400"),
+                        fxFact(
+                                "foreign-1",
+                                "facility.amount.foreign_value",
+                                "1118534000",
+                                "USD"
+                        ),
+                        fxFact(
+                                "foreign-2",
+                                "facility.amount.foreign_value",
+                                "2000000",
+                                "USD"
+                        ),
+                        fxFact(
+                                "rate-1",
+                                "facility.amount.disclosed_fx_rate",
+                                "1263.1",
+                                "KRW_PER_USD"
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("여러 개");
+    }
+
+    @Test
     void 지원하지_않는_연산은_계산불가를_반환한다() {
         CalculationResult result = calculator.calculate(
                 new CalculationCommand(
@@ -501,6 +634,30 @@ class DeterministicDisclosureCalculatorTest {
         return new CalculationCommand(
                 CalculationOperation.DATE_DURATION,
                 new ComparisonBasis(true, false, true, true)
+        );
+    }
+
+    private CalculationCommand fxCheckCommand() {
+        return new CalculationCommand(
+                CalculationOperation.PRODUCT,
+                new ComparisonBasis(true, false, true, true)
+        );
+    }
+
+    private RetrievedFact fxFact(
+            String factId,
+            String factKey,
+            String normalizedValue,
+            String unit
+    ) {
+        return fact(
+                factId,
+                factKey,
+                FactValueType.DECIMAL,
+                normalizedValue,
+                DISCLOSURE_1,
+                unit,
+                FactValidationStatus.VERIFIED
         );
     }
 

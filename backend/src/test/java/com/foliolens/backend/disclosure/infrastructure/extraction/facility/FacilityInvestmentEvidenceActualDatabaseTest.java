@@ -122,7 +122,10 @@ class FacilityInvestmentEvidenceActualDatabaseTest {
         FacilityInvestmentEvidenceExtractionResult result =
                 FacilityInvestmentEvidenceExtractionResult.combine(results);
 
-        assertThat(result.candidateCount()).isEqualTo(9);
+        // 핵심 8개 + TYPE(9번째) + FOREIGN_VALUE/CURRENCY_CODE/
+        // DISCLOSED_FX_RATE(3개, "기타 투자판단과 관련한 중요사항" 서술
+        // 문장에서 정규식으로 뽑아내는 비핵심 Fact 후보) = 12개.
+        assertThat(result.candidateCount()).isEqualTo(12);
         assertThat(result.hasAllCoreCandidates()).isTrue();
         assertThat(result.missingCoreDefinitions()).isEmpty();
         assertThat(result.ambiguousDefinitions()).isEmpty();

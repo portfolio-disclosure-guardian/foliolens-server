@@ -44,9 +44,21 @@ import java.util.Objects;
  *
  * {@code FACILITY_DURATION_DAYS}는 공시에 별도의 "총 투자기간" 값이 없어
  * 비교 대상이 없으므로, 계산이 성공해도 항상 {@code NOT_COMPARABLE}로
- * 계산값만 제공한다. 다른 "동일 공시 계산"
- * ({@code AMOUNT_CHANGE}, {@code FX_CHECK} 등)은 정정 전/후 값이나
- * 외화·조달 관련 Fact가 아직 추출되지 않아 지원하지 않는다.
+ * 계산값만 제공한다.
+ *
+ * {@code PRODUCT}는 {@code FACILITY_FX_CHECK}
+ * ({@code facility.amount.foreign_value × facility.amount.disclosed_fx_rate}를
+ * {@code facility.amount}와 비교)만 지원한다. 두 Fact 모두
+ * "기타 투자판단과 관련한 중요사항" 서술 문장에서 정규식으로 뽑아낸
+ * 값이라 43건 실제 코퍼스 기준 USD로 표시된 문서에만 존재하며, 문장에
+ * 외화 원금이나 환율 숫자가 없으면(예: "USD환율을 적용한 금액임"처럼
+ * 통화만 언급) 추측하지 않고 {@code NOT_CALCULABLE}로 남는다. 총사업비
+ * ×회사부담률({@code FACILITY_COMPANY_SHARE_CHECK})은 43건 어디에도
+ * 해당 값이 없어 Fact 자체를 추출하지 않았으므로, {@code PRODUCT}가
+ * 이 계산까지 대신 지원하지는 않는다.
+ *
+ * 다른 "동일 공시 계산"({@code AMOUNT_CHANGE}, {@code SCHEDULE_DELAY} 등)은
+ * 정정 전/후 값 Fact가 아직 추출되지 않아 지원하지 않는다.
  *
  * {@link RetrievedFact}는 아직 {@code accountingBasis}(연결·별도 기준)를
  * 담지 않으므로(주석 참고) 그 기준 검증은 현재 이 계산기가 확인할 수
@@ -67,9 +79,15 @@ public class DeterministicDisclosureCalculator implements DisclosureCalculator {
     private static final String EQUITY_RATIO_FACT_KEY = "facility.equity_ratio";
     private static final String START_DATE_FACT_KEY = "facility.start_date";
     private static final String END_DATE_FACT_KEY = "facility.end_date";
+    private static final String FOREIGN_VALUE_FACT_KEY =
+            "facility.amount.foreign_value";
+    private static final String DISCLOSED_FX_RATE_FACT_KEY =
+            "facility.amount.disclosed_fx_rate";
     private static final String KRW_UNIT = "KRW";
     private static final String PERCENT_UNIT = "PERCENT";
     private static final String ISO_DATE_UNIT = "ISO_DATE";
+    private static final String USD_UNIT = "USD";
+    private static final String KRW_PER_USD_UNIT = "KRW_PER_USD";
 
     // 공시비율을 신뢰할 수 없어 원문 소수 자릿수(d)를 알 수 없을 때만 쓰는
     // 표시용 기본 자릿수. 이 경우 비교는 하지 않으므로(NOT_COMPARABLE)
@@ -91,6 +109,7 @@ public class DeterministicDisclosureCalculator implements DisclosureCalculator {
         return switch (command.operation()) {
             case RATIO -> calculateRatio(command, facts);
             case DATE_DURATION -> calculateDurationDays(command, facts);
+            case PRODUCT -> calculateFxCheck(command, facts);
             default -> notCalculable(
                     command.operation(),
                     List.of(),
@@ -396,6 +415,166 @@ public class DeterministicDisclosureCalculator implements DisclosureCalculator {
                 null,
                 DAYS_UNIT,
                 "공시된 총 투자기간 값과 비교할 대상이 없어 계산값만 제공합니다."
+        );
+    }
+
+    /**
+     * {@code facility.amount.foreign_value × facility.amount.disclosed_fx_rate}
+     * (원화 환산액)을 {@code facility.amount}(공시된 KRW 투자금액)와
+     * 비교한다. 두 입력 모두 서술 문장에서 정규식으로 뽑아낸 값이라
+     * 존재하지 않는 문서가 대부분이며, 그 경우 {@code NOT_CALCULABLE}을
+     * 반환한다.
+     */
+    private CalculationResult calculateFxCheck(
+            CalculationCommand command,
+            List<RetrievedFact> facts
+    ) {
+        Map<String, List<RetrievedFact>> byKey = indexByFactKey(facts);
+        List<RetrievedFact> foreignCandidates =
+                byKey.getOrDefault(FOREIGN_VALUE_FACT_KEY, List.of());
+        List<RetrievedFact> rateCandidates =
+                byKey.getOrDefault(DISCLOSED_FX_RATE_FACT_KEY, List.of());
+        List<RetrievedFact> amountCandidates =
+                byKey.getOrDefault(AMOUNT_FACT_KEY, List.of());
+
+        if (foreignCandidates.size() > 1 || rateCandidates.size() > 1
+                || amountCandidates.size() > 1) {
+            return notCalculable(
+                    command.operation(),
+                    List.of(),
+                    null,
+                    KRW_UNIT,
+                    "같은 factKey의 Fact가 여러 개라 임의로 선택할 수 없습니다: "
+                            + FOREIGN_VALUE_FACT_KEY + ", "
+                            + DISCLOSED_FX_RATE_FACT_KEY + ", "
+                            + AMOUNT_FACT_KEY
+            );
+        }
+
+        RetrievedFact foreign = foreignCandidates.isEmpty()
+                ? null : foreignCandidates.get(0);
+        RetrievedFact rate = rateCandidates.isEmpty()
+                ? null : rateCandidates.get(0);
+        RetrievedFact amount = amountCandidates.isEmpty()
+                ? null : amountCandidates.get(0);
+
+        if (foreign == null || foreign.normalizedValue() == null
+                || rate == null || rate.normalizedValue() == null
+                || amount == null || amount.normalizedValue() == null) {
+            return notCalculable(
+                    command.operation(),
+                    List.of(),
+                    null,
+                    KRW_UNIT,
+                    "계산에 필요한 " + FOREIGN_VALUE_FACT_KEY + ", "
+                            + DISCLOSED_FX_RATE_FACT_KEY + " 또는 "
+                            + AMOUNT_FACT_KEY + "가 없습니다."
+            );
+        }
+
+        List<String> inputFactIds = List.of(
+                foreign.factId(),
+                rate.factId(),
+                amount.factId()
+        );
+
+        if (foreign.validationStatus() != FactValidationStatus.VERIFIED
+                || rate.validationStatus() != FactValidationStatus.VERIFIED
+                || amount.validationStatus()
+                        != FactValidationStatus.VERIFIED) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "VERIFIED 상태가 아닌 Fact는 계산에 사용할 수 없습니다."
+            );
+        }
+
+        if (!Objects.equals(foreign.disclosureId(), amount.disclosureId())
+                || !Objects.equals(
+                        rate.disclosureId(),
+                        amount.disclosureId()
+                )) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "외화금액·환율·투자금액이 같은 공시의 Fact가 아닙니다."
+            );
+        }
+
+        if (!USD_UNIT.equals(foreign.unit())) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "지원하지 않는 외화 단위입니다: " + foreign.unit()
+            );
+        }
+        if (!KRW_PER_USD_UNIT.equals(rate.unit())) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "지원하지 않는 환율 단위입니다: " + rate.unit()
+            );
+        }
+        if (!KRW_UNIT.equals(amount.unit())) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "투자금액이 KRW 단위가 아닙니다."
+            );
+        }
+
+        BigDecimal foreignValue;
+        BigDecimal rateValue;
+        BigDecimal amountValue;
+        try {
+            foreignValue = new BigDecimal(foreign.normalizedValue());
+            rateValue = new BigDecimal(rate.normalizedValue());
+            amountValue = new BigDecimal(amount.normalizedValue());
+        } catch (NumberFormatException e) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "정규화된 값을 숫자로 변환할 수 없습니다."
+            );
+        }
+
+        if (foreignValue.signum() <= 0 || rateValue.signum() <= 0) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "외화금액 또는 환율이 0 이하입니다."
+            );
+        }
+
+        BigDecimal raw = foreignValue.multiply(rateValue);
+        BigDecimal display = raw.setScale(0, ROUNDING_MODE);
+        boolean matches = display.compareTo(amountValue) == 0;
+
+        return new CalculationResult(
+                command.operation(),
+                inputFactIds,
+                matches ? CalculationVerdict.MATCH : CalculationVerdict.MISMATCH,
+                raw.doubleValue(),
+                display.toPlainString(),
+                amountValue.toPlainString(),
+                KRW_UNIT,
+                matches
+                        ? "외화금액×환율 환산액이 공시된 투자금액과 일치합니다."
+                        : "외화금액×환율 환산액이 공시된 투자금액과 다릅니다."
         );
     }
 
