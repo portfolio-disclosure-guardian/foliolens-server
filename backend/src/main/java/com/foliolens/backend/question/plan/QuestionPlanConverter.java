@@ -23,6 +23,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -51,8 +52,9 @@ public class QuestionPlanConverter {
     }
 
     public QuestionPlan candidateToConfirmation(QuestionPlanCandidate candidate) {
-        validateStepReferences(candidate.steps());
-        List<PlanStep> steps = candidate.steps().stream().map(this::convertToPlanStep).toList();
+        List<PlanStepCandidate> normalizedSteps = normalizeDependsOn(candidate.steps());
+        validateStepReferences(normalizedSteps);
+        List<PlanStep> steps = normalizedSteps.stream().map(this::convertToPlanStep).toList();
         validateFromBindings(steps);
         validateSearchAttempts(steps);
 
@@ -90,6 +92,37 @@ public class QuestionPlanConverter {
                         "조건을 바꾼 추가 검색은 전체 계획에서 1회만 허용됩니다.");
             }
         }
+    }
+
+    // HCX가 *From 참조(disclosureIdsFrom/factsFrom)는 올바르게 채우면서 그 step을
+    // dependsOn에는 빠뜨리는 경우가 있다. *From이 이미 의존 관계를 말해주므로,
+    // dependsOn에 없으면 자동으로 채워 넣는다. 이렇게 보강한 뒤에도 validateStepReferences가
+    // 자기 참조·존재하지 않는 참조·미래 참조를 그대로 걸러내므로 검증 강도는 유지된다.
+    private List<PlanStepCandidate> normalizeDependsOn(List<PlanStepCandidate> steps) {
+        return steps.stream()
+                .map(step -> {
+                    String fromStepId = extractFromStepId(step.toolType(), step.input());
+                    if (fromStepId == null || step.dependsOn().contains(fromStepId)) {
+                        return step;
+                    }
+                    List<String> augmented = new ArrayList<>(step.dependsOn());
+                    augmented.add(fromStepId);
+                    return new PlanStepCandidate(step.stepId(), step.toolType(), step.input(), List.copyOf(augmented));
+                })
+                .toList();
+    }
+
+    private String extractFromStepId(ToolType toolType, JsonNode input) {
+        String fieldName = switch (toolType) {
+            case LOOKUP_FACTS, SEARCH_EVIDENCE -> "disclosureIdsFrom";
+            case CALCULATE -> "factsFrom";
+            default -> null;
+        };
+        if (fieldName == null || input == null) {
+            return null;
+        }
+        JsonNode value = input.path(fieldName);
+        return value.isTextual() ? value.asText() : null;
     }
 
     // PLAN_STEP_INPUT_CONTRACT.md 6절 4번: stepId 중복, 자기 참조, 존재하지 않는 참조, 순환 의존성 거부.

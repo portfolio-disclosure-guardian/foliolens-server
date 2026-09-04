@@ -349,16 +349,18 @@ class QuestionPlanConverterTest {
     }
 
     @Test
-    void from값이_dependsOn에_없으면_QUESTION_400_7_예외를_던진다() {
+    void from값이_dependsOn에_없으면_자동으로_보강된다() {
         PlanStepCandidate searchStep = searchDisclosuresStep("s1", 10);
         PlanStepCandidate lookupStep = new PlanStepCandidate(
                 "s2",
                 ToolType.LOOKUP_FACTS,
                 objectMapper.valueToTree(Map.of("disclosureIdsFrom", "s1", "factKeys", List.of("facility.amount"))),
-                List.of() // s1을 쓰면서 dependsOn에는 안 넣음
+                List.of() // s1을 쓰면서 dependsOn에는 안 넣음 - HCX가 흔히 저지르는 실수
         );
 
-        assertQuestion4007(candidateWithSteps(List.of(searchStep, lookupStep)));
+        QuestionPlan plan = converter.candidateToConfirmation(candidateWithSteps(List.of(searchStep, lookupStep)));
+
+        assertThat(plan.steps().get(1).dependsOn()).containsExactly("s1");
     }
 
     @Test
@@ -414,7 +416,7 @@ class QuestionPlanConverterTest {
     }
 
     @Test
-    void SEARCH_EVIDENCE의_from값이_dependsOn에_없으면_QUESTION_400_7_예외를_던진다() {
+    void SEARCH_EVIDENCE의_from값이_dependsOn에_없으면_자동으로_보강된다() {
         PlanStepCandidate searchStep = searchDisclosuresStep("s1", 10);
         PlanStepCandidate evidenceStep = new PlanStepCandidate(
                 "s2",
@@ -427,7 +429,22 @@ class QuestionPlanConverterTest {
                 List.of()
         );
 
-        assertQuestion4007(candidateWithSteps(List.of(searchStep, evidenceStep)));
+        QuestionPlan plan = converter.candidateToConfirmation(candidateWithSteps(List.of(searchStep, evidenceStep)));
+
+        assertThat(plan.steps().get(1).dependsOn()).containsExactly("s1");
+    }
+
+    @Test
+    void from이_존재하지_않는_step을_가리키면_dependsOn_보강_없이_QUESTION_400_7_예외를_던진다() {
+        PlanStepCandidate lookupStep = new PlanStepCandidate(
+                "s1",
+                ToolType.LOOKUP_FACTS,
+                objectMapper.valueToTree(Map.of(
+                        "disclosureIdsFrom", "no-such-step", "factKeys", List.of("facility.amount"))),
+                List.of()
+        );
+
+        assertQuestion4007(candidateWithSteps(List.of(lookupStep)));
     }
 
     private void assertQuestion4007(QuestionPlanCandidate candidate) {
