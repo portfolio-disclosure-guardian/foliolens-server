@@ -33,6 +33,7 @@ import com.foliolens.backend.disclosure.domain.DisclosureCategory;
 import com.foliolens.backend.evaluation.controller.EvaluationAnswerController;
 import com.foliolens.backend.policy.GoldFacility001Fixture;
 import com.foliolens.backend.policy.GoldenCase;
+import com.foliolens.backend.policy.GoldenCaseApprovalStatus;
 import com.foliolens.backend.question.AnswerQuestionCommand;
 import com.foliolens.backend.question.RequestChannel;
 import com.foliolens.backend.question.plan.HcxPlanGenerator;
@@ -112,9 +113,35 @@ class OrchestrationAnswerRealDataIntegrationTest {
     @BeforeEach
     void setUp() {
         jdbcTemplate.execute("TRUNCATE TABLE companies CASCADE");
-        seedGoldenDisclosure();
-        seedVerifiedFactsAndEvidences();
-        when(hcxPlanGenerator.generatePlan(goldenCase.question())).thenReturn(goldenPlanCandidate());
+        seedGoldenDisclosure(goldenCase);
+        seedVerifiedFactsAndEvidences(goldenCase);
+        when(hcxPlanGenerator.generatePlan(goldenCase.question())).thenReturn(goldenPlanCandidate(goldenCase));
+    }
+
+    // A9: 승인된 골든 케이스가 SK하이닉스 외에 셀트리온·LG이노텍으로 늘어난 뒤에도
+    // 세 회사 모두 실제 PostgreSQL 스키마에서 끝까지 COMPLETED로 처리되는지 확인한다.
+    @Test
+    void 승인된_모든_골든_케이스가_실제_DB에서_COMPLETED로_처리된다() {
+        for (GoldenCase approvedCase : GoldFacility001Fixture.policy().goldenCases()) {
+            assertThat(approvedCase.approvalStatus()).isEqualTo(GoldenCaseApprovalStatus.APPROVED);
+
+            jdbcTemplate.execute("TRUNCATE TABLE companies CASCADE");
+            seedGoldenDisclosure(approvedCase);
+            seedVerifiedFactsAndEvidences(approvedCase);
+            when(hcxPlanGenerator.generatePlan(approvedCase.question())).thenReturn(goldenPlanCandidate(approvedCase));
+
+            AnswerResult result = service.getAnswer(command(approvedCase));
+
+            assertThat(result.outcome())
+                    .as("goldenCaseId=%s", approvedCase.goldenCaseId())
+                    .isEqualTo(AnswerOutcome.COMPLETED);
+            assertThat(result.calculations().getFirst().verdict())
+                    .as("goldenCaseId=%s", approvedCase.goldenCaseId())
+                    .isEqualTo(CalculationVerdict.MATCH);
+            assertThat(result.renderedAnswer())
+                    .as("goldenCaseId=%s", approvedCase.goldenCaseId())
+                    .isEqualTo(approvedCase.expectedAnswer());
+        }
     }
 
     @Test
@@ -175,8 +202,20 @@ class OrchestrationAnswerRealDataIntegrationTest {
     }
 
     private AnswerQuestionCommand command() {
+        return command(goldenCase);
+    }
+
+    private AnswerQuestionCommand command(GoldenCase goldenCase) {
         return new AnswerQuestionCommand(
                 goldenCase.goldenCaseId(), goldenCase.question(), RequestChannel.EVALUATION, "a8-real-data-request");
+    }
+
+    private static LocalDate decisionDateOf(GoldenCase goldenCase) {
+        return LocalDate.parse(goldenCase.expectedNormalizedFacts().get("facility.decision_date"));
+    }
+
+    private static String formatKrw(String rawDigits) {
+        return "%,d".formatted(new java.math.BigDecimal(rawDigits).toBigInteger());
     }
 
     private QuestionPlan goldenPlan() {
@@ -214,7 +253,8 @@ class OrchestrationAnswerRealDataIntegrationTest {
                 List.of());
     }
 
-    private QuestionPlanCandidate goldenPlanCandidate() {
+    private QuestionPlanCandidate goldenPlanCandidate(GoldenCase goldenCase) {
+        LocalDate decisionDate = decisionDateOf(goldenCase);
         String monthStart = decisionDate.withDayOfMonth(1).toString();
         String monthEnd = decisionDate.withDayOfMonth(decisionDate.lengthOfMonth()).toString();
         DateRangeCandidate decisionMonth = new DateRangeCandidate(monthStart, monthEnd);
@@ -290,7 +330,8 @@ class OrchestrationAnswerRealDataIntegrationTest {
                 List.of());
     }
 
-    private void seedGoldenDisclosure() {
+    private void seedGoldenDisclosure(GoldenCase goldenCase) {
+        LocalDate decisionDate = decisionDateOf(goldenCase);
         jdbcTemplate.update(
                 """
                 INSERT INTO companies (
@@ -375,13 +416,16 @@ class OrchestrationAnswerRealDataIntegrationTest {
                 """,
                 BLOCK_ID, DOCUMENT_ID, SECTION_ID);
 
+        String formattedAmount = formatKrw(goldenCase.expectedNormalizedFacts().get("facility.amount"));
+        String formattedEquityAmount = formatKrw(goldenCase.expectedNormalizedFacts().get("facility.equity_amount"));
+        String equityRatio = goldenCase.expectedNormalizedFacts().get("facility.equity_ratio");
         String bodyText = "투자대상 " + goldenCase.expectedNormalizedFacts().get("facility.target")
-                + "\n투자금액 5,296,200,000,000원"
-                + "\n자기자본 53,503,752,397,611원"
-                + "\n자기자본대비 9.90%"
+                + "\n투자금액 " + formattedAmount + "원"
+                + "\n자기자본 " + formattedEquityAmount + "원"
+                + "\n자기자본대비 " + equityRatio + "%"
                 + "\n투자목적 " + goldenCase.expectedNormalizedFacts().get("facility.purpose");
-        String searchText = "신규시설투자 투자내역 투자대상 투자금액 5,296,200,000,000원 "
-                + "자기자본 53,503,752,397,611원 자기자본대비 9.90% "
+        String searchText = "신규시설투자 투자내역 투자대상 투자금액 " + formattedAmount + "원 "
+                + "자기자본 " + formattedEquityAmount + "원 자기자본대비 " + equityRatio + "% "
                 + "투자목적 " + goldenCase.expectedNormalizedFacts().get("facility.purpose");
 
         jdbcTemplate.update(
@@ -413,21 +457,21 @@ class OrchestrationAnswerRealDataIntegrationTest {
                 CHUNK_SOURCE_ID, CHUNK_ID, DOCUMENT_ID, BLOCK_ID);
     }
 
-    private void seedVerifiedFactsAndEvidences() {
+    private void seedVerifiedFactsAndEvidences(GoldenCase goldenCase) {
+        var facts = goldenCase.expectedNormalizedFacts();
         var values = new java.util.LinkedHashMap<String, FactSeed>();
-        values.put("facility.target", FactSeed.text(
-                goldenCase.expectedNormalizedFacts().get("facility.target")));
+        values.put("facility.target", FactSeed.text(facts.get("facility.target")));
         values.put("facility.amount", FactSeed.decimal(
-                "5,296,200,000,000", "원", "5296200000000", "KRW", "KRW"));
+                formatKrw(facts.get("facility.amount")), "원", facts.get("facility.amount"), "KRW", "KRW"));
         values.put("facility.equity_amount", FactSeed.decimal(
-                "53,503,752,397,611", "원", "53503752397611", "KRW", "KRW"));
+                formatKrw(facts.get("facility.equity_amount")), "원",
+                facts.get("facility.equity_amount"), "KRW", "KRW"));
         values.put("facility.equity_ratio", FactSeed.decimal(
-                "9.90", "%", "9.90", "PERCENT", null));
-        values.put("facility.purpose", FactSeed.text(
-                goldenCase.expectedNormalizedFacts().get("facility.purpose")));
-        values.put("facility.start_date", FactSeed.date("2024-04-24"));
-        values.put("facility.end_date", FactSeed.date("2026-10-30"));
-        values.put("facility.decision_date", FactSeed.date("2024-04-24"));
+                facts.get("facility.equity_ratio"), "%", facts.get("facility.equity_ratio"), "PERCENT", null));
+        values.put("facility.purpose", FactSeed.text(facts.get("facility.purpose")));
+        values.put("facility.start_date", FactSeed.date(facts.get("facility.start_date")));
+        values.put("facility.end_date", FactSeed.date(facts.get("facility.end_date")));
+        values.put("facility.decision_date", FactSeed.date(facts.get("facility.decision_date")));
 
         int index = 0;
         for (var entry : values.entrySet()) {
