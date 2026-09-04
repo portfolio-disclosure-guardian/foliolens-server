@@ -38,6 +38,7 @@ import com.foliolens.backend.calculation.CalculationVerdict;
 import com.foliolens.backend.calculation.fake.FakeDisclosureCalculator;
 import com.foliolens.backend.company.domain.Company;
 import com.foliolens.backend.company.repository.CompanyRepository;
+import com.foliolens.backend.disclosure.domain.DisclosureCategory;
 import com.foliolens.backend.disclosure.domain.fact.EvidenceStatus;
 import com.foliolens.backend.disclosure.domain.fact.FactValidationStatus;
 import com.foliolens.backend.evaluation.controller.EvaluationAnswerController;
@@ -51,7 +52,11 @@ import com.foliolens.backend.question.RequestChannel;
 import com.foliolens.backend.question.entity.QuestionRun;
 import com.foliolens.backend.question.plan.HcxPlanGenerator;
 import com.foliolens.backend.question.plan.QuestionPlanConverter;
+import com.foliolens.backend.question.plan.ToolType;
+import com.foliolens.backend.question.plan.candidate.PlanStepCandidate;
+import com.foliolens.backend.question.plan.candidate.QuestionPlanCandidate;
 import com.foliolens.backend.question.plan.confirmation.QuestionPlan;
+import com.foliolens.backend.question.plan.toolinput.SearchDisclosuresInput;
 import com.foliolens.backend.question.service.QuestionRunService;
 import com.foliolens.backend.retrieval.DisclosureRetriever;
 import com.foliolens.backend.retrieval.RetrievalResult;
@@ -85,7 +90,7 @@ class OrchestrationAnswerServiceTest {
         when(run.getQuestionText()).thenReturn(goldenCase.question());
         when(questionRunService.createQuestionRun(
                 anyString(),
-                eq(goldenCase.goldenCaseId()),
+                anyString(),
                 eq(goldenCase.question()),
                 eq(RequestChannel.EVALUATION)))
                 .thenReturn(run);
@@ -96,7 +101,7 @@ class OrchestrationAnswerServiceTest {
 
         hcxPlanGenerator = mock(HcxPlanGenerator.class);
         when(hcxPlanGenerator.generatePlan(eq(goldenCase.question())))
-                .thenReturn(GoldFacility001Fixture.questionPlanCandidate());
+                .thenReturn(facilityPlanCandidate("신규시설투자등"));
         questionPlanConverter = new QuestionPlanConverter(
                 companyRepositoryResolving(goldenCase.companyName()), JsonMapper.builder().build(), 1, 50);
 
@@ -176,6 +181,30 @@ class OrchestrationAnswerServiceTest {
                 .contains("question_run_completed")
                 .doesNotContain(goldenCase.question())
                 .doesNotContain(goldenCase.expectedAnswer());
+    }
+
+    @Test
+    void question_id가_골든_ID가_아니어도_검증된_계획으로_정책을_선택한다() {
+        String evaluationQuestionId = "A9-SMOKE-001";
+        when(run.getExternalQuestionId()).thenReturn(evaluationQuestionId);
+
+        AnswerResult result = service.getAnswer(command(evaluationQuestionId));
+
+        assertEquals(evaluationQuestionId, result.externalQuestionId());
+        assertEquals(AnswerOutcome.COMPLETED, result.outcome());
+        assertEquals(goldenCase.receiptNo(), result.usedEvidences().getFirst().documentId());
+    }
+
+    @Test
+    void 지원하지_않는_subtype에는_시설투자_정책을_적용하지_않는다() {
+        when(hcxPlanGenerator.generatePlan(eq(goldenCase.question())))
+                .thenReturn(facilityPlanCandidate("지원하지않는공시"));
+
+        AnswerResult result = service.getAnswer(command());
+
+        assertEquals(AnswerOutcome.UNANSWERABLE, result.outcome());
+        assertEquals("답변 생성 기능이 아직 연결되지 않았습니다.", result.renderedAnswer());
+        verifyNoInteractions(hcxAnswerGenerator);
     }
 
     @Test
@@ -326,15 +355,17 @@ class OrchestrationAnswerServiceTest {
 
     @Test
     void GET_answer는_골든_질문의_근거와_답변을_반환한다() throws Exception {
+        String evaluationQuestionId = "A9-SMOKE-HTTP-001";
+        when(run.getExternalQuestionId()).thenReturn(evaluationQuestionId);
         MockMvc mockMvc = MockMvcBuilders
                 .standaloneSetup(new EvaluationAnswerController(service))
                 .build();
 
         mockMvc.perform(get("/answer")
-                        .param("question_id", goldenCase.goldenCaseId())
+                        .param("question_id", evaluationQuestionId)
                         .param("question", goldenCase.question()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.question_id").value(goldenCase.goldenCaseId()))
+                .andExpect(jsonPath("$.question_id").value(evaluationQuestionId))
                 .andExpect(jsonPath("$.question").value(goldenCase.question()))
                 .andExpect(jsonPath("$.retrieved_context[0].receipt_no").value(goldenCase.receiptNo()))
                 .andExpect(jsonPath("$.think_trace").isNotEmpty())
@@ -342,10 +373,34 @@ class OrchestrationAnswerServiceTest {
     }
 
     private AnswerQuestionCommand command() {
+        return command(goldenCase.goldenCaseId());
+    }
+
+    private AnswerQuestionCommand command(String externalQuestionId) {
         return new AnswerQuestionCommand(
-                goldenCase.goldenCaseId(),
+                externalQuestionId,
                 goldenCase.question(),
                 RequestChannel.EVALUATION,
                 requestId);
+    }
+
+    private QuestionPlanCandidate facilityPlanCandidate(String subtype) {
+        PlanStepCandidate search = new PlanStepCandidate(
+                "s1",
+                ToolType.SEARCH_DISCLOSURES,
+                JsonMapper.builder().build().valueToTree(new SearchDisclosuresInput(
+                        List.of(DisclosureCategory.EXCHANGE),
+                        List.of(subtype),
+                        List.of(),
+                        10)),
+                List.of());
+        QuestionPlanCandidate base = GoldFacility001Fixture.questionPlanCandidate();
+        return new QuestionPlanCandidate(
+                base.schemaVersion(),
+                base.companiesMention(),
+                base.time(),
+                base.interestCodes(),
+                List.of(search),
+                base.ambiguities());
     }
 }

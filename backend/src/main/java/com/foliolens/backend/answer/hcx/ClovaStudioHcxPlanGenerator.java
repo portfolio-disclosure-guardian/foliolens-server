@@ -33,7 +33,7 @@ public class ClovaStudioHcxPlanGenerator implements HcxPlanGenerator {
                 {
                   "stepId": "step1",
                   "toolType": "SEARCH_DISCLOSURES",
-                  "input": {"categories": ["PERIODIC|MATERIAL|EXCHANGE|OWNERSHIP 중 해당하는 값"], "subtypes": [], "titleTerms": [], "limit": 5},
+                  "input": {"categories": ["categories는 아래 4개 값 중에서만 선택"], "subtypes": [], "titleTerms": [], "limit": 5},
                   "dependsOn": []
                 },
                 {
@@ -45,12 +45,26 @@ public class ClovaStudioHcxPlanGenerator implements HcxPlanGenerator {
                 {
                   "stepId": "step3",
                   "toolType": "CALCULATE",
-                  "input": {"factsFrom": "step2", "operation": "DIFFERENCE|CHANGE_RATE|RATIO|SUM|AVERAGE|DATE_DURATION|UNIT_CONVERSION|SHARE_DILUTION 중 하나", "inputBindings": []},
+                  "input": {"factsFrom": "step2", "operation": "DIFFERENCE|CHANGE_RATE|RATIO|SUM|AVERAGE|DATE_DURATION|UNIT_CONVERSION|SHARE_DILUTION 중 하나", "inputBindings": ["step2 factKeys에 있는 계산 입력 fact key 문자열만, 예: 투자금액, 자기자본"]},
                   "dependsOn": ["step2"]
                 }
               ],
               "ambiguities": []
             }
+
+            categories는 반드시 아래 4개 값 중 하나 이상이어야 하며, 이 4개 외의 다른 문자열은
+            어떤 경우에도 만들어내지 마세요. 의미가 비슷해 보여도 새 값을 지어내면 안 됩니다.
+            - PERIODIC: 사업보고서·반기보고서·분기보고서
+            - MATERIAL: 주요사항보고서(예: 투자판단관련주요경영사항, 자산양수도, 합병 등)
+            - EXCHANGE: 거래소 공시(예: 신규시설투자등, 단일판매공급계약체결, 자기주식취득 등 -
+              "투자", "시설", "계약" 같은 단어가 있어도 주요사항보고서가 아니라 거래소 공시인 경우가 많음)
+            - OWNERSHIP: 주식 등의 대량보유상황보고서
+
+            예: "SK하이닉스의 신규시설투자 공시" → categories는 ["MATERIAL"]이 아니라 ["EXCHANGE"]입니다.
+
+            inputBindings는 문자열 배열입니다. {"sourceFactKey": ..., "targetFactKey": ...} 같은 객체나
+            [["a","b"]] 같은 중첩 배열을 만들지 말고, 계산에 쓰는 factKey 문자열만 나열하세요.
+            예: 투자금액을 자기자본으로 나누는 비율 계산이면 "inputBindings": ["투자금액", "자기자본"]입니다.
 
             SEARCH_EVIDENCE와 RESOLVE_DISCLOSURE_HISTORY의 input은 빈 객체 {}입니다.
             계산이 필요 없는 질문이면 CALCULATE step을 넣지 마세요. steps는 필요한 만큼만 사용하세요.
