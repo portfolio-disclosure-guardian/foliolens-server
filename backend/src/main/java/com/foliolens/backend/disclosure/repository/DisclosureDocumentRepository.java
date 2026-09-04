@@ -54,6 +54,15 @@ public interface DisclosureDocumentRepository extends JpaRepository<DisclosureDo
     );
 
     /**
+     * 한 접수번호에 속한 원문 파일을 Fact 적재 대상 선택에 사용할 수 있도록
+     * 공시 메타데이터와 함께 조회한다.
+     */
+    @EntityGraph(attributePaths = "disclosure")
+    List<DisclosureDocument> findAllByDisclosure_ReceiptNoOrderByIdAsc(
+            String receiptNo
+    );
+
+    /**
      * NFC 정규화 상대경로로 원문 파일 조회
      *
      * disclosure_documents의 멱등성 기준으로 사용한다.

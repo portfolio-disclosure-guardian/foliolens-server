@@ -119,6 +119,11 @@ foliolens:
       max-documents: ${FOLIOLENS_CHUNKING_MAX_DOCUMENTS:50}
       max-failures: ${FOLIOLENS_CHUNKING_MAX_FAILURES:5}
 
+  fact:
+    facility-ingestion:
+      enabled: ${FOLIOLENS_PERSIST_FACILITY_FACT_ON_STARTUP:false}
+      receipt-no: ${FOLIOLENS_FACILITY_FACT_RECEIPT_NO:}
+
   question:
     answer:
       require-approved-golden-case: ${FOLIOLENS_REQUIRE_APPROVED_GOLDEN_CASE:false}
