@@ -172,6 +172,108 @@ class FacilityInvestmentEvidenceExtractorTest {
                 .containsExactly("시설투자 Evidence 후보를 찾지 못했습니다.");
     }
 
+    // ---- 정정사항 비교표(정정항목 | 정정전 | 정정후) ----
+    // 아래 표 구조는 실제 접수번호 20240813800252/20231228800377의
+    // 원문 표 그대로다.
+
+    @Test
+    void 정정사항_비교표에서_정정_전후_금액과_종료일을_함께_추출한다() {
+        ParsedDisclosureTable table = table(
+                row(0, cell(0, 1, 1, "1. 정정관련 공시서류"),
+                        cell(1, 1, 1, "신규 시설투자 등(자율공시)")),
+                row(1, cell(0, 1, 1, "2. 정정관련 공시서류제출일"),
+                        cell(1, 1, 1, "2024-08-13")),
+                row(2, cell(0, 1, 1, "3. 정정사유"),
+                        cell(1, 1, 1, "투자금액 및 투자기간 변경")),
+                row(3, cell(0, 1, 1, "4. 정정사항")),
+                row(4, cell(0, 1, 1, "정정항목"),
+                        cell(1, 1, 1, "정정전"),
+                        cell(2, 1, 1, "정정후")),
+                row(5, cell(0, 1, 1, "2. 투자금액"),
+                        cell(1, 1, 1, "80,300,000,000"),
+                        cell(2, 1, 1, "100,800,000,000")),
+                row(6, cell(0, 1, 1, "4. 투자기간 종료일"),
+                        cell(1, 1, 1, "2025-09-30"),
+                        cell(2, 1, 1, "2025-10-31"))
+        );
+
+        FacilityInvestmentEvidenceExtractionResult result =
+                extractor.extract(context(), table);
+
+        DisclosureEvidence amountBefore = result.uniqueCandidate(
+                FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_BEFORE
+        ).orElseThrow();
+        DisclosureEvidence amountAfter = result.uniqueCandidate(
+                FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_AFTER
+        ).orElseThrow();
+        DisclosureEvidence endDateBefore = result.uniqueCandidate(
+                FacilityInvestmentFactDefinition.END_DATE_CORRECTION_BEFORE
+        ).orElseThrow();
+        DisclosureEvidence endDateAfter = result.uniqueCandidate(
+                FacilityInvestmentFactDefinition.END_DATE_CORRECTION_AFTER
+        ).orElseThrow();
+
+        assertThat(amountBefore.value().rawValue())
+                .isEqualTo("80,300,000,000");
+        assertThat(amountAfter.value().rawValue())
+                .isEqualTo("100,800,000,000");
+        assertThat(endDateBefore.value().rawValue()).isEqualTo("2025-09-30");
+        assertThat(endDateAfter.value().rawValue()).isEqualTo("2025-10-31");
+
+        // 이 표에는 "일반 행 매칭" 경로로도 매칭될 법한 "투자금액" 라벨이
+        // 있지만, 정정사항 표로 인식된 뒤부터는 일반 경로로 처리하지
+        // 않으므로 facility.amount 핵심 Fact 후보를 만들지 않는다.
+        assertThat(result.candidatesFor(FacilityInvestmentFactDefinition.AMOUNT))
+                .isEmpty();
+    }
+
+    @Test
+    void 정정항목이_여러_값을_묶은_행이면_추측하지_않는다() {
+        ParsedDisclosureTable table = table(
+                row(0, cell(0, 1, 1, "정정항목"),
+                        cell(1, 1, 1, "정정전"),
+                        cell(2, 1, 1, "정정후")),
+                row(1, cell(0, 1, 1,
+                                "2.투자내역 - 투자금액(원) - 자기자본대비(%)"),
+                        cell(1, 1, 1, "143,700,000,000 28.14"),
+                        cell(2, 1, 1, "155,800,000,000 30.51")),
+                row(2, cell(0, 1, 1, "4.투자기간 - 종료일"),
+                        cell(1, 1, 1, "2023-12-31"),
+                        cell(2, 1, 1, "2025-04-30"))
+        );
+
+        FacilityInvestmentEvidenceExtractionResult result =
+                extractor.extract(context(), table);
+
+        assertThat(result.candidatesFor(
+                FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_BEFORE
+        )).isEmpty();
+        assertThat(result.candidatesFor(
+                FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_AFTER
+        )).isEmpty();
+        // 종료일 행은 결합되지 않았으므로 정상적으로 추출된다.
+        assertThat(result.uniqueCandidate(
+                FacilityInvestmentFactDefinition.END_DATE_CORRECTION_BEFORE
+        )).isPresent();
+        assertThat(result.uniqueCandidate(
+                FacilityInvestmentFactDefinition.END_DATE_CORRECTION_AFTER
+        )).isPresent();
+    }
+
+    @Test
+    void 정정사항_표가_없으면_일반_행_매칭만_한다() {
+        ParsedDisclosureTable table = goldenFacilityTable();
+
+        FacilityInvestmentEvidenceExtractionResult result =
+                extractor.extract(context(), table);
+
+        assertThat(result.candidatesFor(
+                FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_BEFORE
+        )).isEmpty();
+        assertThat(result.uniqueCandidate(FacilityInvestmentFactDefinition.AMOUNT))
+                .isPresent();
+    }
+
     private FacilityInvestmentExtractionContext context() {
         return new FacilityInvestmentExtractionContext(
                 UUID.fromString("11111111-1111-1111-1111-111111111111"),

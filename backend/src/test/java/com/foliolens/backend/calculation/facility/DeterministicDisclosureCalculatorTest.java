@@ -606,6 +606,229 @@ class DeterministicDisclosureCalculatorTest {
     }
 
     @Test
+    void 정정_전후_금액_차이를_계산하고_비교대상이_없어_비교불가로_반환한다() {
+        // 실제 접수번호 20240813800252 원문 값.
+        CalculationResult result = calculator.calculate(
+                differenceCommand(),
+                List.of(
+                        correctionFact(
+                                "before-1",
+                                "correction.amount.before",
+                                "80300000000",
+                                "KRW"
+                        ),
+                        correctionFact(
+                                "after-1",
+                                "correction.amount.after",
+                                "100800000000",
+                                "KRW"
+                        )
+                )
+        );
+
+        assertThat(result.verdict()).isEqualTo(CalculationVerdict.NOT_COMPARABLE);
+        assertThat(result.rawResult()).isEqualTo(20500000000.0);
+        assertThat(result.displayValue()).isEqualTo("20500000000");
+        assertThat(result.disclosedValue()).isNull();
+        assertThat(result.unit()).isEqualTo("KRW");
+    }
+
+    @Test
+    void 정정_금액이_줄면_음수_변화액을_반환한다() {
+        // 실제 접수번호 20240926800370 원문 값.
+        CalculationResult result = calculator.calculate(
+                differenceCommand(),
+                List.of(
+                        correctionFact(
+                                "before-1",
+                                "correction.amount.before",
+                                "114183198371",
+                                "KRW"
+                        ),
+                        correctionFact(
+                                "after-1",
+                                "correction.amount.after",
+                                "70652728848",
+                                "KRW"
+                        )
+                )
+        );
+
+        assertThat(result.displayValue()).isEqualTo("-43530469523");
+    }
+
+    @Test
+    void 정정_전후_종료일_차이를_일수로_계산한다() {
+        // 실제 접수번호 20240813800252 원문 값.
+        CalculationResult result = calculator.calculate(
+                differenceCommand(),
+                List.of(
+                        correctionFact(
+                                "before-1",
+                                "correction.end_date.before",
+                                "2025-09-30",
+                                "ISO_DATE"
+                        ),
+                        correctionFact(
+                                "after-1",
+                                "correction.end_date.after",
+                                "2025-10-31",
+                                "ISO_DATE"
+                        )
+                )
+        );
+
+        assertThat(result.verdict()).isEqualTo(CalculationVerdict.NOT_COMPARABLE);
+        assertThat(result.displayValue()).isEqualTo("31");
+        assertThat(result.unit()).isEqualTo("일");
+    }
+
+    @Test
+    void 종료일이_앞당겨지면_음수_일수를_반환한다() {
+        // 실제 접수번호 20260327903037 원문 값(일정 단축).
+        CalculationResult result = calculator.calculate(
+                differenceCommand(),
+                List.of(
+                        correctionFact(
+                                "before-1",
+                                "correction.end_date.before",
+                                "2026-03-31",
+                                "ISO_DATE"
+                        ),
+                        correctionFact(
+                                "after-1",
+                                "correction.end_date.after",
+                                "2026-03-27",
+                                "ISO_DATE"
+                        )
+                )
+        );
+
+        assertThat(result.displayValue()).isEqualTo("-4");
+    }
+
+    @Test
+    void 정정_금액과_종료일_Fact가_함께_있으면_계산불가를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                differenceCommand(),
+                List.of(
+                        correctionFact(
+                                "before-1",
+                                "correction.amount.before",
+                                "80300000000",
+                                "KRW"
+                        ),
+                        correctionFact(
+                                "after-1",
+                                "correction.amount.after",
+                                "100800000000",
+                                "KRW"
+                        ),
+                        correctionFact(
+                                "before-2",
+                                "correction.end_date.before",
+                                "2025-09-30",
+                                "ISO_DATE"
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("함께 있어");
+    }
+
+    @Test
+    void 정정_전후_Fact가_없으면_계산불가를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                differenceCommand(),
+                List.of(fact("amount-1", "facility.amount", "1000"))
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("정정 전/후 Fact가 없습니다");
+    }
+
+    @Test
+    void 정정_후_금액이_없으면_계산불가를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                differenceCommand(),
+                List.of(correctionFact(
+                        "before-1",
+                        "correction.amount.before",
+                        "80300000000",
+                        "KRW"
+                ))
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason())
+                .contains("correction.amount.after");
+    }
+
+    @Test
+    void 정정_금액_같은_factKey가_여러개면_임의로_선택하지_않는다() {
+        CalculationResult result = calculator.calculate(
+                differenceCommand(),
+                List.of(
+                        correctionFact(
+                                "before-1",
+                                "correction.amount.before",
+                                "80300000000",
+                                "KRW"
+                        ),
+                        correctionFact(
+                                "before-2",
+                                "correction.amount.before",
+                                "1",
+                                "KRW"
+                        ),
+                        correctionFact(
+                                "after-1",
+                                "correction.amount.after",
+                                "100800000000",
+                                "KRW"
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("여러 개");
+    }
+
+    @Test
+    void 정정_전후_금액이_다른_공시면_계산불가를_반환한다() {
+        CalculationResult result = calculator.calculate(
+                differenceCommand(),
+                List.of(
+                        fact(
+                                "before-1",
+                                "correction.amount.before",
+                                "80300000000",
+                                DISCLOSURE_1,
+                                "KRW",
+                                FactValidationStatus.VERIFIED
+                        ),
+                        fact(
+                                "after-1",
+                                "correction.amount.after",
+                                "100800000000",
+                                DISCLOSURE_2,
+                                "KRW",
+                                FactValidationStatus.VERIFIED
+                        )
+                )
+        );
+
+        assertThat(result.verdict())
+                .isEqualTo(CalculationVerdict.NOT_CALCULABLE);
+        assertThat(result.verdictReason()).contains("같은 공시");
+    }
+
+    @Test
     void 지원하지_않는_연산은_계산불가를_반환한다() {
         CalculationResult result = calculator.calculate(
                 new CalculationCommand(
@@ -641,6 +864,33 @@ class DeterministicDisclosureCalculatorTest {
         return new CalculationCommand(
                 CalculationOperation.PRODUCT,
                 new ComparisonBasis(true, false, true, true)
+        );
+    }
+
+    private CalculationCommand differenceCommand() {
+        return new CalculationCommand(
+                CalculationOperation.DIFFERENCE,
+                new ComparisonBasis(true, false, true, true)
+        );
+    }
+
+    private RetrievedFact correctionFact(
+            String factId,
+            String factKey,
+            String normalizedValue,
+            String unit
+    ) {
+        FactValueType valueType = "ISO_DATE".equals(unit)
+                ? FactValueType.DATE
+                : FactValueType.DECIMAL;
+        return fact(
+                factId,
+                factKey,
+                valueType,
+                normalizedValue,
+                DISCLOSURE_1,
+                unit,
+                FactValidationStatus.VERIFIED
         );
     }
 

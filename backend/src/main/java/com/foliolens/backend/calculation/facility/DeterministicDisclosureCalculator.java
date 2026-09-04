@@ -57,8 +57,16 @@ import java.util.Objects;
  * 해당 값이 없어 Fact 자체를 추출하지 않았으므로, {@code PRODUCT}가
  * 이 계산까지 대신 지원하지는 않는다.
  *
- * 다른 "동일 공시 계산"({@code AMOUNT_CHANGE}, {@code SCHEDULE_DELAY} 등)은
- * 정정 전/후 값 Fact가 아직 추출되지 않아 지원하지 않는다.
+ * {@code DIFFERENCE}는 정정공시 "정정사항" 비교표에서 뽑아낸 정정 전/후
+ * Fact로 {@code FACILITY_AMOUNT_CHANGE}(정정후 금액 − 정정전 금액,
+ * {@code correction.amount.before/after})와
+ * {@code FACILITY_SCHEDULE_DELAY}(정정후 종료일 − 정정전 종료일,
+ * {@code correction.end_date.before/after})를 지원한다. facts에 두 쌍
+ * 중 어느 것이 들어왔는지로 어떤 계산인지 정하며, 공시에 "정정 전후
+ * 차이" 자체를 명시한 비교값이 없으므로 계산이 성공해도 항상
+ * {@code NOT_COMPARABLE}로 계산값만 제공한다. 다른 "동일 공시 계산"
+ * ({@code AMOUNT_CHANGE_RATE}, {@code CHANGE_THRESHOLD} 등)은 아직
+ * 지원하지 않는다.
  *
  * {@link RetrievedFact}는 아직 {@code accountingBasis}(연결·별도 기준)를
  * 담지 않으므로(주석 참고) 그 기준 검증은 현재 이 계산기가 확인할 수
@@ -83,6 +91,14 @@ public class DeterministicDisclosureCalculator implements DisclosureCalculator {
             "facility.amount.foreign_value";
     private static final String DISCLOSED_FX_RATE_FACT_KEY =
             "facility.amount.disclosed_fx_rate";
+    private static final String AMOUNT_BEFORE_FACT_KEY =
+            "correction.amount.before";
+    private static final String AMOUNT_AFTER_FACT_KEY =
+            "correction.amount.after";
+    private static final String END_DATE_BEFORE_FACT_KEY =
+            "correction.end_date.before";
+    private static final String END_DATE_AFTER_FACT_KEY =
+            "correction.end_date.after";
     private static final String KRW_UNIT = "KRW";
     private static final String PERCENT_UNIT = "PERCENT";
     private static final String ISO_DATE_UNIT = "ISO_DATE";
@@ -110,6 +126,7 @@ public class DeterministicDisclosureCalculator implements DisclosureCalculator {
             case RATIO -> calculateRatio(command, facts);
             case DATE_DURATION -> calculateDurationDays(command, facts);
             case PRODUCT -> calculateFxCheck(command, facts);
+            case DIFFERENCE -> calculateDifference(command, facts);
             default -> notCalculable(
                     command.operation(),
                     List.of(),
@@ -575,6 +592,256 @@ public class DeterministicDisclosureCalculator implements DisclosureCalculator {
                 matches
                         ? "외화금액×환율 환산액이 공시된 투자금액과 일치합니다."
                         : "외화금액×환율 환산액이 공시된 투자금액과 다릅니다."
+        );
+    }
+
+    /**
+     * facts에 들어온 정정 전/후 Fact 쌍으로 어떤 DIFFERENCE 계산인지
+     * 정한다. 금액 쌍과 종료일 쌍이 함께 들어오면 어느 쪽을 계산할지
+     * 알 수 없으므로 계산하지 않는다.
+     */
+    private CalculationResult calculateDifference(
+            CalculationCommand command,
+            List<RetrievedFact> facts
+    ) {
+        Map<String, List<RetrievedFact>> byKey = indexByFactKey(facts);
+        boolean hasAmountPair = byKey.containsKey(AMOUNT_BEFORE_FACT_KEY)
+                || byKey.containsKey(AMOUNT_AFTER_FACT_KEY);
+        boolean hasEndDatePair = byKey.containsKey(END_DATE_BEFORE_FACT_KEY)
+                || byKey.containsKey(END_DATE_AFTER_FACT_KEY);
+
+        if (hasAmountPair && hasEndDatePair) {
+            return notCalculable(
+                    command.operation(),
+                    List.of(),
+                    null,
+                    KRW_UNIT,
+                    "정정 금액과 정정 종료일 Fact가 함께 있어 "
+                            + "어떤 차이를 계산할지 알 수 없습니다."
+            );
+        }
+        if (hasAmountPair) {
+            return calculateAmountChange(command, byKey);
+        }
+        if (hasEndDatePair) {
+            return calculateScheduleDelay(command, byKey);
+        }
+        return notCalculable(
+                command.operation(),
+                List.of(),
+                null,
+                KRW_UNIT,
+                "계산에 필요한 정정 전/후 Fact가 없습니다."
+        );
+    }
+
+    /**
+     * {@code FACILITY_AMOUNT_CHANGE}: 정정후 금액 − 정정전 금액. 공시에
+     * "변화액" 자체를 명시한 비교값이 없으므로 계산이 성공해도 항상
+     * {@code NOT_COMPARABLE}로 계산값만 제공한다.
+     */
+    private CalculationResult calculateAmountChange(
+            CalculationCommand command,
+            Map<String, List<RetrievedFact>> byKey
+    ) {
+        List<RetrievedFact> beforeCandidates =
+                byKey.getOrDefault(AMOUNT_BEFORE_FACT_KEY, List.of());
+        List<RetrievedFact> afterCandidates =
+                byKey.getOrDefault(AMOUNT_AFTER_FACT_KEY, List.of());
+
+        if (beforeCandidates.size() > 1 || afterCandidates.size() > 1) {
+            return notCalculable(
+                    command.operation(),
+                    List.of(),
+                    null,
+                    KRW_UNIT,
+                    "같은 factKey의 Fact가 여러 개라 임의로 선택할 수 없습니다: "
+                            + AMOUNT_BEFORE_FACT_KEY + ", "
+                            + AMOUNT_AFTER_FACT_KEY
+            );
+        }
+
+        RetrievedFact before = beforeCandidates.isEmpty()
+                ? null : beforeCandidates.get(0);
+        RetrievedFact after = afterCandidates.isEmpty()
+                ? null : afterCandidates.get(0);
+
+        if (before == null || before.normalizedValue() == null
+                || after == null || after.normalizedValue() == null) {
+            return notCalculable(
+                    command.operation(),
+                    List.of(),
+                    null,
+                    KRW_UNIT,
+                    "계산에 필요한 " + AMOUNT_BEFORE_FACT_KEY + " 또는 "
+                            + AMOUNT_AFTER_FACT_KEY + "가 없습니다."
+            );
+        }
+
+        List<String> inputFactIds =
+                List.of(before.factId(), after.factId());
+
+        if (before.validationStatus() != FactValidationStatus.VERIFIED
+                || after.validationStatus() != FactValidationStatus.VERIFIED) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "VERIFIED 상태가 아닌 Fact는 계산에 사용할 수 없습니다."
+            );
+        }
+        if (!Objects.equals(before.disclosureId(), after.disclosureId())) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "정정 전·후 금액이 같은 공시의 Fact가 아닙니다."
+            );
+        }
+        if (!KRW_UNIT.equals(before.unit())
+                || !KRW_UNIT.equals(after.unit())) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "정정 전·후 금액이 모두 KRW 단위가 아닙니다."
+            );
+        }
+
+        BigDecimal beforeValue;
+        BigDecimal afterValue;
+        try {
+            beforeValue = new BigDecimal(before.normalizedValue());
+            afterValue = new BigDecimal(after.normalizedValue());
+        } catch (NumberFormatException e) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    KRW_UNIT,
+                    "정규화된 금액을 숫자로 변환할 수 없습니다."
+            );
+        }
+
+        BigDecimal raw = afterValue.subtract(beforeValue);
+
+        return new CalculationResult(
+                command.operation(),
+                inputFactIds,
+                CalculationVerdict.NOT_COMPARABLE,
+                raw.doubleValue(),
+                raw.toPlainString(),
+                null,
+                KRW_UNIT,
+                "공시된 변화액 비교값이 없어 계산값만 제공합니다."
+        );
+    }
+
+    /**
+     * {@code FACILITY_SCHEDULE_DELAY}: 정정후 종료일 − 정정전 종료일
+     * (일수). 공시에 "일정 변경일수" 자체를 명시한 비교값이 없으므로
+     * 계산이 성공해도 항상 {@code NOT_COMPARABLE}로 계산값만 제공한다.
+     */
+    private CalculationResult calculateScheduleDelay(
+            CalculationCommand command,
+            Map<String, List<RetrievedFact>> byKey
+    ) {
+        List<RetrievedFact> beforeCandidates =
+                byKey.getOrDefault(END_DATE_BEFORE_FACT_KEY, List.of());
+        List<RetrievedFact> afterCandidates =
+                byKey.getOrDefault(END_DATE_AFTER_FACT_KEY, List.of());
+
+        if (beforeCandidates.size() > 1 || afterCandidates.size() > 1) {
+            return notCalculable(
+                    command.operation(),
+                    List.of(),
+                    null,
+                    DAYS_UNIT,
+                    "같은 factKey의 Fact가 여러 개라 임의로 선택할 수 없습니다: "
+                            + END_DATE_BEFORE_FACT_KEY + ", "
+                            + END_DATE_AFTER_FACT_KEY
+            );
+        }
+
+        RetrievedFact before = beforeCandidates.isEmpty()
+                ? null : beforeCandidates.get(0);
+        RetrievedFact after = afterCandidates.isEmpty()
+                ? null : afterCandidates.get(0);
+
+        if (before == null || before.normalizedValue() == null
+                || after == null || after.normalizedValue() == null) {
+            return notCalculable(
+                    command.operation(),
+                    List.of(),
+                    null,
+                    DAYS_UNIT,
+                    "계산에 필요한 " + END_DATE_BEFORE_FACT_KEY + " 또는 "
+                            + END_DATE_AFTER_FACT_KEY + "가 없습니다."
+            );
+        }
+
+        List<String> inputFactIds =
+                List.of(before.factId(), after.factId());
+
+        if (before.validationStatus() != FactValidationStatus.VERIFIED
+                || after.validationStatus() != FactValidationStatus.VERIFIED) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    DAYS_UNIT,
+                    "VERIFIED 상태가 아닌 Fact는 계산에 사용할 수 없습니다."
+            );
+        }
+        if (!Objects.equals(before.disclosureId(), after.disclosureId())) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    DAYS_UNIT,
+                    "정정 전·후 종료일이 같은 공시의 Fact가 아닙니다."
+            );
+        }
+        if (!ISO_DATE_UNIT.equals(before.unit())
+                || !ISO_DATE_UNIT.equals(after.unit())) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    DAYS_UNIT,
+                    "정정 전·후 종료일이 모두 ISO_DATE 단위가 아닙니다."
+            );
+        }
+
+        LocalDate beforeDate;
+        LocalDate afterDate;
+        try {
+            beforeDate = LocalDate.parse(before.normalizedValue());
+            afterDate = LocalDate.parse(after.normalizedValue());
+        } catch (DateTimeException e) {
+            return notCalculable(
+                    command.operation(),
+                    inputFactIds,
+                    null,
+                    DAYS_UNIT,
+                    "정규화된 날짜를 변환할 수 없습니다."
+            );
+        }
+
+        long days = ChronoUnit.DAYS.between(beforeDate, afterDate);
+
+        return new CalculationResult(
+                command.operation(),
+                inputFactIds,
+                CalculationVerdict.NOT_COMPARABLE,
+                (double) days,
+                String.valueOf(days),
+                null,
+                DAYS_UNIT,
+                "공시된 일정 변경일수 비교값이 없어 계산값만 제공합니다."
         );
     }
 

@@ -123,6 +123,44 @@ public enum FacilityInvestmentFactDefinition {
             false,
             Set.of("기타 투자판단과 관련한 중요사항", "기타 투자판단에 참고할 사항"),
             Set.of()
+    ),
+    // 아래 4개는 정정공시의 "정정사항" 비교표(정정항목 | 정정전 | 정정후)
+    // 에서만 나온다. 이 표는 한 "정정항목" 행에 값 셀이 두 개(정정전·
+    // 정정후)라 다른 정의처럼 rowLabels로 단일 값 셀을 매칭하지 않고,
+    // FacilityInvestmentEvidenceExtractor가 표 자체를 인식해 두 Fact를
+    // 함께 만든다. 그래서 rowLabels·columnLabels는 여기서 쓰지 않는다
+    // (빈 Set으로 두면 일반 행 매칭 경로에서는 항상 매칭되지 않는다).
+    AMOUNT_CORRECTION_BEFORE(
+            "correction.amount.before",
+            FactValueType.DECIMAL,
+            "KRW",
+            false,
+            Set.of(),
+            Set.of()
+    ),
+    AMOUNT_CORRECTION_AFTER(
+            "correction.amount.after",
+            FactValueType.DECIMAL,
+            "KRW",
+            false,
+            Set.of(),
+            Set.of()
+    ),
+    END_DATE_CORRECTION_BEFORE(
+            "correction.end_date.before",
+            FactValueType.DATE,
+            "ISO_DATE",
+            false,
+            Set.of(),
+            Set.of()
+    ),
+    END_DATE_CORRECTION_AFTER(
+            "correction.end_date.after",
+            FactValueType.DATE,
+            "ISO_DATE",
+            false,
+            Set.of(),
+            Set.of()
     );
 
     private final String factKey;

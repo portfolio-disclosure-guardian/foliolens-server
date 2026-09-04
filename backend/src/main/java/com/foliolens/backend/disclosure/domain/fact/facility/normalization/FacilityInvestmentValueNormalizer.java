@@ -106,6 +106,17 @@ public class FacilityInvestmentValueNormalizer {
                 == FacilityInvestmentFactDefinition.DISCLOSED_FX_RATE) {
             return normalizeDisclosedFxRate(value.rawValue());
         }
+        // 정정공시 "정정사항" 비교표의 정정전/정정후 값 셀은 별도 단위
+        // 열이 없다("2. 투자금액"처럼 라벨에 "(원)"조차 없을 때가
+        // 많다). 이 두 Fact는 항상 원 단위 금액이라는 것을 표 구조
+        // 자체가 보장하므로, rawUnit을 "원"으로 명시해 정규화한다.
+        if (definition
+                == FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_BEFORE
+                || definition
+                        == FacilityInvestmentFactDefinition
+                                .AMOUNT_CORRECTION_AFTER) {
+            return normalizeKrwAmount(value.rawValue(), "원");
+        }
 
         return switch (definition.valueType()) {
             case DECIMAL -> "PERCENT".equals(definition.normalizedUnit())

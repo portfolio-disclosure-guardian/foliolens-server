@@ -21,6 +21,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,6 +40,24 @@ public class FacilityInvestmentEvidenceExtractor {
     private static final Pattern RAW_UNIT_PATTERN = Pattern.compile(
             "\\(\\s*(원|천원|백만원|억원|%|퍼센트)\\s*\\)"
     );
+
+    // 정정공시의 "정정사항" 비교표는 "정정항목 | 정정전 | 정정후" 헤더
+    // 행 뒤로 항목마다 값이 두 개(정정전·정정후)다. 이 헤더가 있는
+    // 표에서만 아래 정정 전/후 추출을 적용해, 일반 표의 3셀 행(예:
+    // "2. 투자내역 | 투자금액(원) | 5,296,200,000,000")이 잘못 걸리지
+    // 않게 한다.
+    private static final String CORRECTION_ITEM_HEADER = "정정항목";
+    private static final String CORRECTION_BEFORE_HEADER = "정정전";
+    private static final String CORRECTION_AFTER_HEADER = "정정후";
+    private static final Pattern CORRECTION_LABEL_PREFIX_PATTERN =
+            Pattern.compile("^\\d+\\s*[.)]\\s*");
+    private static final Pattern CORRECTION_LABEL_SPLIT_PATTERN =
+            Pattern.compile("[\\s\\-_:()·%,]+");
+    private static final Set<String> CORRECTION_LABEL_NOISE = Set.of(
+            "투자내역", "투자기간", "의", "등", "원"
+    );
+    private static final String CORRECTION_AMOUNT_TOKEN = "투자금액";
+    private static final String CORRECTION_END_DATE_TOKEN = "종료일";
 
     private final TableLogicalGridBuilder gridBuilder;
 
@@ -112,14 +131,175 @@ public class FacilityInvestmentEvidenceExtractor {
         EnumMap<FacilityInvestmentFactDefinition, List<DisclosureEvidence>>
                 candidates = new EnumMap<>(FacilityInvestmentFactDefinition.class);
 
+        int correctionHeaderRowIndex =
+                findCorrectionDiffHeaderRowIndex(grid);
+
         for (LogicalTableRow row : grid.rows()) {
-            extractRow(context, table, nestingPath, row, candidates);
+            if (correctionHeaderRowIndex >= 0
+                    && row.rowIndex() >= correctionHeaderRowIndex) {
+                extractCorrectionDiffRow(
+                        context,
+                        table,
+                        nestingPath,
+                        row,
+                        candidates
+                );
+            } else {
+                extractRow(context, table, nestingPath, row, candidates);
+            }
         }
 
         return new FacilityInvestmentEvidenceExtractionResult(
                 candidates,
                 List.of()
         );
+    }
+
+    /**
+     * "정정항목 | 정정전 | 정정후" 헤더 행을 찾는다. 있으면 그 행부터는
+     * 정정 전/후 비교 행으로 보고 {@link #extractRow}가 아니라
+     * {@link #extractCorrectionDiffRow}로 처리한다. 없으면 -1을
+     * 반환해 표 전체를 기존 방식으로만 처리한다.
+     */
+    private int findCorrectionDiffHeaderRowIndex(LogicalTableGrid grid) {
+        for (LogicalTableRow row : grid.rows()) {
+            List<LogicalTableCell> cells = row.cells().stream()
+                    .filter(LogicalTableCell::isOrigin)
+                    .filter(cell -> cell.text() != null
+                            && !cell.text().isBlank())
+                    .toList();
+            if (cells.size() == 3
+                    && CORRECTION_ITEM_HEADER.equals(
+                            cells.get(0).text().strip()
+                    )
+                    && CORRECTION_BEFORE_HEADER.equals(
+                            cells.get(1).text().strip()
+                    )
+                    && CORRECTION_AFTER_HEADER.equals(
+                            cells.get(2).text().strip()
+                    )) {
+                return row.rowIndex();
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * "정정항목 | 정정전 | 정정후" 표의 항목 행 하나에서 정정 전·후
+     * Evidence를 함께 만든다. 항목 라벨이 "투자금액" 또는 "종료일"
+     * 하나로만 분류되는 행만 다루고, 여러 항목이 한 행에 묶여 있거나
+     * (예: "투자금액 - 자기자본대비" 결합 행) 대상이 아닌 행은
+     * 추측하지 않고 건너뛴다.
+     */
+    private void extractCorrectionDiffRow(
+            FacilityInvestmentExtractionContext context,
+            ParsedDisclosureTable table,
+            String nestingPath,
+            LogicalTableRow row,
+            Map<FacilityInvestmentFactDefinition, List<DisclosureEvidence>>
+                    candidates
+    ) {
+        List<LogicalTableCell> cells = row.cells().stream()
+                .filter(LogicalTableCell::isOrigin)
+                .filter(cell -> cell.text() != null && !cell.text().isBlank())
+                .toList();
+
+        if (cells.size() < 3) {
+            return;
+        }
+
+        List<LogicalTableCell> labelCells = cells.subList(
+                0,
+                cells.size() - 2
+        );
+        LogicalTableCell beforeCell = cells.get(cells.size() - 2);
+        LogicalTableCell afterCell = cells.get(cells.size() - 1);
+
+        String itemLabel = labelCells.stream()
+                .map(LogicalTableCell::text)
+                .reduce((left, right) -> left + " " + right)
+                .orElse("");
+        CorrectionDiffTarget target = classifyCorrectionItem(itemLabel);
+        if (target == null) {
+            return;
+        }
+
+        candidates.computeIfAbsent(
+                target.beforeDefinition(),
+                ignored -> new ArrayList<>()
+        ).add(createEvidence(
+                context,
+                table,
+                nestingPath,
+                row,
+                cells,
+                labelCells,
+                beforeCell,
+                target.beforeDefinition()
+        ));
+        candidates.computeIfAbsent(
+                target.afterDefinition(),
+                ignored -> new ArrayList<>()
+        ).add(createEvidence(
+                context,
+                table,
+                nestingPath,
+                row,
+                cells,
+                labelCells,
+                afterCell,
+                target.afterDefinition()
+        ));
+    }
+
+    /**
+     * "2. 투자내역_투자금액(원)", "4. 투자기간 (종료일)"처럼 접두 번호·
+     * 구분자·단위 표기가 문서마다 제각각인 정정항목 라벨을 토큰화해
+     * "투자금액" 또는 "종료일" 단일 항목인지 판정한다. 두 항목이 한
+     * 행에 결합돼 있으면(예: "투자금액 - 자기자본대비") 토큰이 2개
+     * 이상 남아 null을 반환해 추측하지 않는다.
+     */
+    private CorrectionDiffTarget classifyCorrectionItem(String itemLabel) {
+        if (itemLabel == null || itemLabel.isBlank()) {
+            return null;
+        }
+
+        String stripped = CORRECTION_LABEL_PREFIX_PATTERN
+                .matcher(itemLabel.strip())
+                .replaceFirst("");
+        List<String> tokens = new ArrayList<>();
+        for (String token
+                : CORRECTION_LABEL_SPLIT_PATTERN.split(stripped)) {
+            if (token.isBlank() || CORRECTION_LABEL_NOISE.contains(token)) {
+                continue;
+            }
+            tokens.add(token);
+        }
+
+        if (tokens.size() != 1) {
+            return null;
+        }
+        if (CORRECTION_AMOUNT_TOKEN.equals(tokens.get(0))) {
+            return new CorrectionDiffTarget(
+                    FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_BEFORE,
+                    FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_AFTER
+            );
+        }
+        if (CORRECTION_END_DATE_TOKEN.equals(tokens.get(0))) {
+            return new CorrectionDiffTarget(
+                    FacilityInvestmentFactDefinition
+                            .END_DATE_CORRECTION_BEFORE,
+                    FacilityInvestmentFactDefinition
+                            .END_DATE_CORRECTION_AFTER
+            );
+        }
+        return null;
+    }
+
+    private record CorrectionDiffTarget(
+            FacilityInvestmentFactDefinition beforeDefinition,
+            FacilityInvestmentFactDefinition afterDefinition
+    ) {
     }
 
     private void extractRow(

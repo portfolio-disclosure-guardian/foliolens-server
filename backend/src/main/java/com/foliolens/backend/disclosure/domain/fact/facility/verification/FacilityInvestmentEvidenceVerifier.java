@@ -27,16 +27,20 @@ public class FacilityInvestmentEvidenceVerifier {
 
     /**
      * "기타 투자판단과 관련한 중요사항" 서술형 문장에서 정규식으로
-     * 뽑아내는 DECIMAL Fact들. 원문 표 라벨(값 셀과 짝을 이루는 행
-     * 레이블)에 "(원)"·"(%)" 같은 단위 표기가 애초에 없으므로, 다른
-     * DECIMAL Fact처럼 원문 단위(rawUnit)까지 요구하지 않는다.
-     * 정규화 결과 자체의 단위(normalizedUnit)가 명확한지는 그대로
-     * 검사한다.
+     * 뽑아내는 DECIMAL Fact와, 정정공시 "정정사항" 비교표(정정항목 |
+     * 정정전 | 정정후)에서 뽑아내는 정정 전/후 금액 Fact. 둘 다 값 셀과
+     * 짝을 이루는 행 레이블에 "(원)"·"(%)" 같은 단위 표기가 항상 있는
+     * 것은 아니므로(정정사항 표는 "2. 투자금액"처럼 단위 없이 나올 때가
+     * 많다), 다른 DECIMAL Fact처럼 원문 단위(rawUnit)까지 요구하지
+     * 않는다. 정규화 결과 자체의 단위(normalizedUnit)가 명확한지는
+     * 그대로 검사한다.
      */
     private static final Set<FacilityInvestmentFactDefinition>
             RAW_UNIT_NOT_REQUIRED = Set.of(
                     FacilityInvestmentFactDefinition.FOREIGN_VALUE,
-                    FacilityInvestmentFactDefinition.DISCLOSED_FX_RATE
+                    FacilityInvestmentFactDefinition.DISCLOSED_FX_RATE,
+                    FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_BEFORE,
+                    FacilityInvestmentFactDefinition.AMOUNT_CORRECTION_AFTER
             );
 
     private final FacilityInvestmentValueNormalizer normalizer;
