@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
-import org.springframework.context.annotation.Profile;
 
 import com.foliolens.backend.calculation.CalculationCommand;
 import com.foliolens.backend.calculation.CalculationResult;

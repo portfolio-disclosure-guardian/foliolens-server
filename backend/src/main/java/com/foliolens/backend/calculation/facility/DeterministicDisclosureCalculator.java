@@ -7,8 +7,6 @@ import com.foliolens.backend.calculation.DisclosureCalculator;
 import com.foliolens.backend.disclosure.domain.fact.FactValidationStatus;
 import com.foliolens.backend.question.plan.toolinput.CalculationOperation;
 import com.foliolens.backend.retrieval.RetrievedFact;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Component;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
