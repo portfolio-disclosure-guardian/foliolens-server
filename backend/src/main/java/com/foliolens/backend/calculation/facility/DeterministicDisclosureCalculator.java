@@ -10,6 +10,9 @@ import com.foliolens.backend.retrieval.RetrievedFact;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -38,6 +41,12 @@ import java.util.Objects;
  * {@link RetrievedFact}는 아직 {@code accountingBasis}(연결·별도 기준)를
  * 담지 않으므로(주석 참고) 그 기준 검증은 현재 이 계산기가 확인할 수
  * 없다. 이는 공통 계약 확장이 필요한 부분으로 남겨둔다.
+ *
+ * fake-calculation 프로필이 아닌 모든 실행(기본·evaluation 포함)에서
+ * {@link DisclosureCalculator} Bean으로 활성화된다. fake-calculation
+ * 프로필에서는 대신
+ * {@link com.foliolens.backend.calculation.fake.FakeDisclosureCalculator}가
+ * 활성화되므로 두 구현체가 동시에 Bean으로 등록되는 일은 없다.
  */
 @Component
 @Profile("!fake-calculation")
