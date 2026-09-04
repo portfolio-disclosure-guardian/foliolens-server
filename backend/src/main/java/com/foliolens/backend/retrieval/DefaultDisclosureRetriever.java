@@ -412,6 +412,7 @@ public class DefaultDisclosureRetriever implements DisclosureRetriever {
 
             return new RetrievedDocument(
                     hit.disclosureDocumentId().toString(),
+                    metadata == null ? null : metadata.receiptNo(),
                     hit.companyName(),
                     stockCode,
                     disclosureType,
@@ -427,6 +428,7 @@ public class DefaultDisclosureRetriever implements DisclosureRetriever {
                 DisclosureMetadataSearchHit metadata
         ) {
             return new RetrievedDocument(
+                    metadata.receiptNo(),
                     metadata.receiptNo(),
                     metadata.companyName(),
                     metadata.stockCode(),

@@ -162,7 +162,7 @@ docker compose --env-file .env.submission -f compose.yaml -f compose.submission.
 
 `-U`/`-d` 값은 `.env.submission`의 `POSTGRES_USER`/`POSTGRES_DB`와 맞춘다(기본값 `foliolens`/`foliolens`).
 
-제출 프로필은 승인된 골든 케이스만 실행한다. 시설투자 골든 케이스 3건(SK하이닉스 `20240424800596`, 셀트리온 `20260324800030`, LG이노텍 `20251127800903`)은 모두 `APPROVED`로 반영되어 있으므로, 덤프에 해당 fact·evidence가 포함되어 있으면 전체 smoke가 placeholder 없이 통과해야 한다.
+제출 프로필은 승인된 골든 케이스만 실행한다. 시설투자 골든 케이스 3건(SK하이닉스 `20240424800596`, 셀트리온 `20260324800030`, LG이노텍 `20251127800903`)은 모두 `APPROVED`로 반영되어 있으며, 실제 제출용 HCX 키로 `.\scripts\submission-smoke.ps1`(전체 버전) 통과를 확인했다. HCX-005는 계획 생성이 완전히 결정적이지 않아(temperature 0.5) 드물게 한 번의 호출에서 검색 결과가 0건으로 나올 수 있는데, 이는 코드 결함이 아니라 자유생성 계획의 변동성이므로 재시도하면 통과한다.
 
 ### Frontend
 

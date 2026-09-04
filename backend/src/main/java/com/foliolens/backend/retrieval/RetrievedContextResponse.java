@@ -11,10 +11,9 @@ public record RetrievedContextResponse(
         String section,
         String content) {
 
-    // ponytail: documentId를 receiptNo로 사용 중. TOOL_CONTRACTS.md의 documentId/receiptNo 분리는 A4 fixture 정렬에서 처리.
     public static RetrievedContextResponse from(RetrievedDocument document) {
         return new RetrievedContextResponse(
-                document.documentId(),
+                document.receiptNo(),
                 document.reportName(),
                 document.submittedAt(),
                 document.section(),

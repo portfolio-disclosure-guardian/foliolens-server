@@ -134,6 +134,7 @@ public class DisclosureFactRetrievalMapper {
                     .collect(java.util.stream.Collectors.joining("\n"));
             return new RetrievedDocument(
                     documentId.toString(),
+                    metadata.receiptNo(),
                     metadata.companyName(),
                     metadata.stockCode(),
                     metadata.sourceGroup().getValue(),
